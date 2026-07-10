@@ -1,3 +1,9 @@
+Fork of UXP intended to be used with my Pale Moon fork (Phantom Satellite) and possibly a future Basilisk fork.
+
+Should in theory work with any UXP based browser
+
+Part of the original UXP README is below:
+
 # Unified XUL Platform (UXP)
 
 This directory holds the code for a unified application platform for XUL-based
