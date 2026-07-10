@@ -2,6 +2,8 @@ Fork of UXP intended to be used with my Pale Moon fork (Phantom Satellite) and p
 
 Should in theory work with any UXP based browser
 
+Unless there is an issue specific to my fork, please submit any issues/prs to upstream UXP, they will eventually end up in mine.
+
 Part of the original UXP README is below:
 
 # Unified XUL Platform (UXP)
