@@ -5,7 +5,9 @@
 
 #include "lib/extras/time.h"
 
-#include <cstdlib>
+#include <stdint.h>
+#include <stdlib.h>
+
 #include <ctime>
 
 #include "lib/jxl/base/os_macros.h"  // for JXL_OS_*

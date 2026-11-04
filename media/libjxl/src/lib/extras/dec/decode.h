@@ -8,15 +8,11 @@
 
 // Facade for image decoders (PNG, PNM, ...).
 
-#include <jxl/memory_manager.h>
-
 #include <cstddef>
 #include <cstdint>
 #include <string>
 
 #include "lib/extras/dec/color_hints.h"
-#include "lib/extras/packed_image.h"
-#include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/span.h"
 #include "lib/jxl/base/status.h"
 
@@ -38,8 +34,6 @@ enum class Codec : uint32_t {
   kJXL
 };
 
-Codec DetectCodec(const Span<const uint8_t>& bytes);
-
 bool CanDecode(Codec codec);
 
 std::string ListOfDecodeCodecs();
@@ -55,9 +49,7 @@ Codec CodecFromPath(const std::string& path,
 Status DecodeBytes(Span<const uint8_t> bytes, const ColorHints& color_hints,
                    extras::PackedPixelFile* ppf,
                    const SizeConstraints* constraints = nullptr,
-                   Codec* orig_codec = nullptr,
-                   JxlMemoryManager* memory_manager = nullptr,
-                   bool coalescing = true);
+                   Codec* orig_codec = nullptr);
 
 }  // namespace extras
 }  // namespace jxl

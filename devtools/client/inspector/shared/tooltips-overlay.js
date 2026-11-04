@@ -143,8 +143,7 @@ TooltipsOverlay.prototype = {
     // Font preview tooltip
     if (type === VIEW_NODE_VALUE_TYPE && prop.property === "font-family") {
       let value = prop.value.toLowerCase();
-      if (value !== "inherit" && value !== "unset" && value !== "initial" &&
-          value !== "revert" && value !== "revert-layer") {
+      if (value !== "inherit" && value !== "unset" && value !== "initial" && value !== "revert") {
         tooltipType = TOOLTIP_FONTFAMILY_TYPE;
       }
     }

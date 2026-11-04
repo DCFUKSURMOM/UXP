@@ -702,16 +702,17 @@ void SkScalerContext_CairoFT::generateMetrics(SkGlyph* glyph)
     case FT_GLYPH_FORMAT_BITMAP:
         if (face->glyph->bitmap.pixel_mode == FT_PIXEL_MODE_BGRA) {
             glyph->fMaskFormat = SkMask::kARGB32_Format;
-        } else if (face->glyph->bitmap.pixel_mode == FT_PIXEL_MODE_GRAY ||
-                   isLCD(fRec)) {
-            glyph->fMaskFormat = SkMask::kA8_Format;
+        }
+
+        if (isLCD(fRec)) {
+            fRec.fMaskFormat = SkMask::kA8_Format;
         }
 
         if (fHaveShape) {
             // Ensure filtering is preserved when the bitmap is transformed.
             // Otherwise, the result will look horrifically aliased.
-            if (glyph->fMaskFormat == SkMask::kBW_Format) {
-                glyph->fMaskFormat = SkMask::kA8_Format;
+            if (fRec.fMaskFormat == SkMask::kBW_Format) {
+                fRec.fMaskFormat = SkMask::kA8_Format;
             }
 
             // Apply the shape matrix to the glyph's bounding box.

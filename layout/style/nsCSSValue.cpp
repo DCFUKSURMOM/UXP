@@ -192,9 +192,6 @@ nsCSSValue::nsCSSValue(const nsCSSValue& aCopy)
   else if (eCSSUnit_Revert == mUnit) {
     mValue.mCascadeOrigin = aCopy.mValue.mCascadeOrigin;
   }
-  else if (eCSSUnit_RevertLayer == mUnit) {
-    mValue.mInt = aCopy.mValue.mInt;
-  }
   else if (UnitHasArrayValue()) {
     mValue.mArray = aCopy.mValue.mArray;
     mValue.mArray->AddRef();
@@ -318,9 +315,6 @@ bool nsCSSValue::operator==(const nsCSSValue& aOther) const
     }
     else if (eCSSUnit_Revert == mUnit) {
       return mValue.mCascadeOrigin == aOther.mValue.mCascadeOrigin;
-    }
-    else if (eCSSUnit_RevertLayer == mUnit) {
-      return mValue.mInt == aOther.mValue.mInt;
     }
     else if (UnitHasArrayValue()) {
       return *mValue.mArray == *aOther.mValue.mArray;
@@ -599,31 +593,6 @@ nsCSSValue::SetCascadeOriginValue(mozilla::SheetType aValue, nsCSSUnit aUnit)
   mValue.mCascadeOrigin = aValue;
 }
 
-static const int32_t kRevertLayerMask = 0x000fffff;
-static const int32_t kRevertLayerImportant = 0x00100000;
-static const int32_t kRevertLayerOriginShift = 21;
-
-mozilla::SheetType
-nsCSSValue::GetRevertLayerOriginValue() const
-{
-  MOZ_ASSERT(mUnit == eCSSUnit_RevertLayer, "not a revert-layer value");
-  return mozilla::SheetType(uint32_t(mValue.mInt) >> kRevertLayerOriginShift);
-}
-
-bool
-nsCSSValue::GetRevertLayerImportanceValue() const
-{
-  MOZ_ASSERT(mUnit == eCSSUnit_RevertLayer, "not a revert-layer value");
-  return (mValue.mInt & kRevertLayerImportant) != 0;
-}
-
-int32_t
-nsCSSValue::GetRevertLayerLayerIndexValue() const
-{
-  MOZ_ASSERT(mUnit == eCSSUnit_RevertLayer, "not a revert-layer value");
-  return mValue.mInt & kRevertLayerMask;
-}
-
 void nsCSSValue::SetArrayValue(nsCSSValue::Array* aValue, nsCSSUnit aUnit)
 {
   Reset();
@@ -694,9 +663,7 @@ void nsCSSValue::SetPairValue(const nsCSSValuePair* aValue)
              aValue->mXValue.GetUnit() != eCSSUnit_Unset &&
              aValue->mYValue.GetUnit() != eCSSUnit_Unset &&
              aValue->mXValue.GetUnit() != eCSSUnit_Revert &&
-             aValue->mYValue.GetUnit() != eCSSUnit_Revert &&
-             aValue->mXValue.GetUnit() != eCSSUnit_RevertLayer &&
-             aValue->mYValue.GetUnit() != eCSSUnit_RevertLayer,
+             aValue->mYValue.GetUnit() != eCSSUnit_Revert,
              "missing or inappropriate pair value");
   Reset();
   mUnit = eCSSUnit_Pair;
@@ -716,9 +683,7 @@ void nsCSSValue::SetPairValue(const nsCSSValue& xValue,
              xValue.GetUnit() != eCSSUnit_Unset &&
              yValue.GetUnit() != eCSSUnit_Unset &&
              xValue.GetUnit() != eCSSUnit_Revert &&
-             yValue.GetUnit() != eCSSUnit_Revert &&
-             xValue.GetUnit() != eCSSUnit_RevertLayer &&
-             yValue.GetUnit() != eCSSUnit_RevertLayer,
+             yValue.GetUnit() != eCSSUnit_Revert,
              "inappropriate pair value");
   Reset();
   mUnit = eCSSUnit_Pair;
@@ -744,10 +709,7 @@ void nsCSSValue::SetTripletValue(const nsCSSValueTriplet* aValue)
              aValue->mZValue.GetUnit() != eCSSUnit_Unset &&
              aValue->mXValue.GetUnit() != eCSSUnit_Revert &&
              aValue->mYValue.GetUnit() != eCSSUnit_Revert &&
-             aValue->mZValue.GetUnit() != eCSSUnit_Revert &&
-             aValue->mXValue.GetUnit() != eCSSUnit_RevertLayer &&
-             aValue->mYValue.GetUnit() != eCSSUnit_RevertLayer &&
-             aValue->mZValue.GetUnit() != eCSSUnit_RevertLayer,
+             aValue->mZValue.GetUnit() != eCSSUnit_Revert,
              "missing or inappropriate triplet value");
   Reset();
   mUnit = eCSSUnit_Triplet;
@@ -773,10 +735,7 @@ void nsCSSValue::SetTripletValue(const nsCSSValue& xValue,
              zValue.GetUnit() != eCSSUnit_Unset &&
              xValue.GetUnit() != eCSSUnit_Revert &&
              yValue.GetUnit() != eCSSUnit_Revert &&
-             zValue.GetUnit() != eCSSUnit_Revert &&
-             xValue.GetUnit() != eCSSUnit_RevertLayer &&
-             yValue.GetUnit() != eCSSUnit_RevertLayer &&
-             zValue.GetUnit() != eCSSUnit_RevertLayer,
+             zValue.GetUnit() != eCSSUnit_Revert,
              "inappropriate triplet value");
   Reset();
   mUnit = eCSSUnit_Triplet;
@@ -890,26 +849,6 @@ void
 nsCSSValue::SetRevertValue(mozilla::SheetType aValue)
 {
   SetCascadeOriginValue(aValue, eCSSUnit_Revert);
-}
-
-void
-nsCSSValue::SetRevertLayerValue()
-{
-  SetRevertLayerValue(mozilla::SheetType::Unknown, false, 0);
-}
-
-void
-nsCSSValue::SetRevertLayerValue(mozilla::SheetType aLevel,
-                                bool aIsImportant,
-                                int32_t aLayerIndex)
-{
-  MOZ_ASSERT(aLayerIndex >= 0 && aLayerIndex <= kRevertLayerMask,
-             "cascade layer index is out of range");
-  Reset();
-  mUnit = eCSSUnit_RevertLayer;
-  mValue.mInt = (uint32_t(aLevel) << kRevertLayerOriginShift) |
-                (aIsImportant ? kRevertLayerImportant : 0) |
-                (aLayerIndex & kRevertLayerMask);
 }
 
 void nsCSSValue::SetNoneValue()
@@ -2295,7 +2234,6 @@ nsCSSValue::AppendToString(nsCSSPropertyID aProperty, nsAString& aResult,
     case eCSSUnit_Initial:      aResult.AppendLiteral("initial");  break;
     case eCSSUnit_Unset:        aResult.AppendLiteral("unset");    break;
     case eCSSUnit_Revert:       aResult.AppendLiteral("revert");   break;
-    case eCSSUnit_RevertLayer:  aResult.AppendLiteral("revert-layer"); break;
     case eCSSUnit_None:         aResult.AppendLiteral("none");     break;
     case eCSSUnit_Normal:       aResult.AppendLiteral("normal");   break;
     case eCSSUnit_System_Font:  aResult.AppendLiteral("-moz-use-system-font"); break;
@@ -2573,7 +2511,6 @@ nsCSSValue::SizeOfExcludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
 
     // Cascade Origin: nothing extra to measure.
     case eCSSUnit_Revert:
-    case eCSSUnit_RevertLayer:
       break;
 
     // Float: nothing extra to measure.
@@ -2899,8 +2836,7 @@ nsCSSRect::AppendToString(nsCSSPropertyID aProperty, nsAString& aResult,
              mTop.GetUnit() != eCSSUnit_Inherit &&
              mTop.GetUnit() != eCSSUnit_Initial &&
              mTop.GetUnit() != eCSSUnit_Unset &&
-             mTop.GetUnit() != eCSSUnit_Revert &&
-             mTop.GetUnit() != eCSSUnit_RevertLayer,
+             mTop.GetUnit() != eCSSUnit_Revert,
              "parser should have used a bare value");
 
   if (eCSSProperty_border_image_slice == aProperty ||
@@ -2972,20 +2908,6 @@ nsCSSValuePair::AppendToString(nsCSSPropertyID aProperty,
                                nsAString& aResult,
                                nsCSSValue::Serialization aSerialization) const
 {
-  if (aProperty == eCSSProperty_aspect_ratio) {
-    if (mXValue.GetUnit() == eCSSUnit_Auto) {
-      mXValue.AppendToString(aProperty, aResult, aSerialization);
-      aResult.Append(char16_t(' '));
-      mYValue.AppendToString(aProperty, aResult, aSerialization);
-      return;
-    }
-
-    mXValue.AppendToString(aProperty, aResult, aSerialization);
-    aResult.AppendLiteral(" / ");
-    mYValue.AppendToString(aProperty, aResult, aSerialization);
-    return;
-  }
-
   mXValue.AppendToString(aProperty, aResult, aSerialization);
   if (mYValue.GetUnit() != eCSSUnit_Null) {
     aResult.Append(char16_t(' '));
@@ -3085,7 +3007,6 @@ nsCSSValuePairList::AppendToString(nsCSSPropertyID aProperty,
         item->mXValue.GetUnit() != eCSSUnit_Initial &&
         item->mXValue.GetUnit() != eCSSUnit_Unset &&
         item->mXValue.GetUnit() != eCSSUnit_Revert &&
-        item->mXValue.GetUnit() != eCSSUnit_RevertLayer &&
         item->mYValue.GetUnit() != eCSSUnit_Null) {
       aResult.Append(char16_t(' '));
       item->mYValue.AppendToString(aProperty, aResult, aSerialization);
@@ -3522,8 +3443,6 @@ nsCSSValueTokenStream::nsCSSValueTokenStream()
   : mPropertyID(eCSSProperty_UNKNOWN)
   , mShorthandPropertyID(eCSSProperty_UNKNOWN)
   , mLevel(SheetType::Count)
-  , mIsImportant(false)
-  , mLayerIndex(0)
 {
   MOZ_COUNT_CTOR(nsCSSValueTokenStream);
 }

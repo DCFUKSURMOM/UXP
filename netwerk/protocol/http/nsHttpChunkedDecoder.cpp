@@ -110,27 +110,22 @@ nsHttpChunkedDecoder::ParseChunkRemaining(char *buf,
             count = mLineBuf.Length();
         }
 
-        // NUL is illegal in a chunk-size or trailer field line (RFC 9110 section
-        // 5.5).
-        if (memchr(buf, '\0', count)) {
-            LOG(("chunked line contains embedded NUL; rejecting\n"));
-            return NS_ERROR_UNEXPECTED;
-        }
-
         if (mWaitEOF) {
-            if (count) {
+            if (*buf) {
                 LOG(("got trailer: %s\n", buf));
                 // allocate a header array for the trailers on demand
                 if (!mTrailers) {
                     mTrailers = new nsHttpHeaderArray();
                 }
                 mTrailers->ParseHeaderLine(nsDependentCSubstring(buf, count));
-            } else {
+            }
+            else {
                 mWaitEOF = false;
                 mReachedEOF = true;
                 LOG(("reached end of chunked-body\n"));
             }
-        } else if (count) {
+        }
+        else if (*buf) {
             char *endptr;
             unsigned long parsedval; // could be 64 bit, could be 32
 
@@ -156,7 +151,8 @@ nsHttpChunkedDecoder::ParseChunkRemaining(char *buf,
 
         // ensure that the line buffer is clear
         mLineBuf.Truncate();
-    } else {
+    }
+    else {
         // save the partial line; wait for more data
         *bytesConsumed = count;
         // ignore a trailing CR

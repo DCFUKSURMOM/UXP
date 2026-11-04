@@ -28,9 +28,6 @@ nsRuleData::GetPoisonOffset()
 nsRuleData::nsRuleData(uint32_t aSIDs, nsCSSValue* aValueStorage,
                        nsPresContext* aContext, nsStyleContext* aStyleContext)
   : mSIDs(aSIDs),
-    mIsImportantRule(false),
-    mLevel(mozilla::SheetType::Unknown),
-    mLayerIndex(0),
     mPresContext(aContext),
     mStyleContext(aStyleContext),
     mValueStorage(aValueStorage)

@@ -110,7 +110,6 @@ EXPORTS += [
 EXPORTS.mozilla += [
     'AspectRatio.h',
     'CSSAlignUtils.h',
-    'LogicalTypes.h',
     'ReflowInput.h',
     'ReflowOutput.h',
     'WritingModes.h',
@@ -125,7 +124,6 @@ EXPORTS.mozilla.layout += [
 ]
 
 UNIFIED_SOURCES += [
-    'AspectRatio.cpp',
     'AsyncScrollBase.cpp',
     'BlockReflowInput.cpp',
     'CSSAlignUtils.cpp',

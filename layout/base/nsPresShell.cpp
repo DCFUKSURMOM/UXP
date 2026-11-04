@@ -8938,11 +8938,7 @@ PresShell::DidDoReflow(bool aInterruptible)
 {
   mFrameConstructor->EndUpdate();
 
-  if (!mHandlingCallbacks) {
-    mHandlingCallbacks = true; // Prevent recursion
-    HandlePostedReflowCallbacks(aInterruptible);
-    mHandlingCallbacks = false;
-  }
+  HandlePostedReflowCallbacks(aInterruptible);
 
   nsCOMPtr<nsIDocShell> docShell = mPresContext->GetDocShell();
   if (docShell) {

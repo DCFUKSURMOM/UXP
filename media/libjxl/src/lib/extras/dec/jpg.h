@@ -8,8 +8,11 @@
 
 // Decodes JPG pixels and metadata in memory.
 
-#include <cstdint>
+#include <stdint.h>
 
+#include "lib/extras/codec.h"
+#include "lib/extras/dec/color_hints.h"
+#include "lib/jxl/base/data_parallel.h"
 #include "lib/jxl/base/span.h"
 #include "lib/jxl/base/status.h"
 
@@ -18,9 +21,6 @@ namespace jxl {
 struct SizeConstraints;
 
 namespace extras {
-
-class ColorHints;
-class PackedPixelFile;
 
 bool CanDecodeJPG();
 

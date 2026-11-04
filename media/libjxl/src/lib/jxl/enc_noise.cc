@@ -6,22 +6,14 @@
 #include "lib/jxl/enc_noise.h"
 
 #include <algorithm>
-#include <cmath>
-#include <cstddef>
 #include <cstdint>
-#include <cstdio>
 #include <cstdlib>
 #include <numeric>
 #include <utility>
-#include <vector>
 
-#include "lib/jxl/base/common.h"
 #include "lib/jxl/base/status.h"
 #include "lib/jxl/enc_aux_out.h"
-#include "lib/jxl/enc_bit_writer.h"
 #include "lib/jxl/enc_optimize.h"
-#include "lib/jxl/image.h"
-#include "lib/jxl/noise.h"
 
 namespace jxl {
 namespace {
@@ -118,7 +110,7 @@ class NoiseHistogram {
  private:
   template <typename T>
   T ClampX(const T x) const {
-    return jxl::Clamp1<T>(x, 0, kBins - 1);
+    return std::min(std::max(static_cast<T>(0), x), static_cast<T>(kBins - 1));
   }
   size_t Index(const float x) const { return ClampX(static_cast<int>(x)); }
 
@@ -198,7 +190,7 @@ struct LossFunction {
 };
 
 void OptimizeNoiseParameters(const std::vector<NoiseLevel>& noise_level,
-                             NoiseParams* noise_params, float mul) {
+                             NoiseParams* noise_params) {
   constexpr double kMaxError = 1e-3;
   static const double kPrecision = 1e-8;
   static const int kMaxIter = 40;
@@ -218,14 +210,8 @@ void OptimizeNoiseParameters(const std::vector<NoiseLevel>& noise_level,
   parameter_vector = optimize::OptimizeWithScaledConjugateGradientMethod(
       loss_function, parameter_vector, kPrecision, kMaxIter);
 
-  // Clamp here to account codestream limits.
-  for (size_t i = 0; i < parameter_vector.size(); i++) {
-    parameter_vector[i] =
-        jxl::Clamp1<float>(parameter_vector[i] * mul, 0.0f, kNoiseLutMax);
-  }
-
-  OptimizeArray unused;
-  float loss = loss_function.Compute(parameter_vector, &unused,
+  OptimizeArray df = parameter_vector;
+  float loss = loss_function.Compute(parameter_vector, &df,
                                      /*skip_regularization=*/true) /
                noise_level.size();
 
@@ -236,7 +222,7 @@ void OptimizeNoiseParameters(const std::vector<NoiseLevel>& noise_level,
   }
 
   for (size_t i = 0; i < parameter_vector.size(); i++) {
-    noise_params->lut[i] = parameter_vector[i];
+    noise_params->lut[i] = std::max(parameter_vector[i], 0.0);
   }
 }
 
@@ -276,10 +262,10 @@ std::vector<NoiseLevel> GetNoiseLevel(
           for (size_t x_bl = 0; x_bl < block_s; ++x_bl) {
             float filtered_value = 0;
             for (int y_f = -1 * filt_size; y_f <= filt_size; ++y_f) {
-              if ((static_cast<ptrdiff_t>(y_bl) + y_f) >= 0 &&
+              if ((static_cast<ssize_t>(y_bl) + y_f) >= 0 &&
                   (y_bl + y_f) < block_s) {
                 for (int x_f = -1 * filt_size; x_f <= filt_size; ++x_f) {
-                  if ((static_cast<ptrdiff_t>(x_bl) + x_f) >= 0 &&
+                  if ((static_cast<ssize_t>(x_bl) + x_f) >= 0 &&
                       (x_bl + x_f) < block_s) {
                     filtered_value +=
                         0.5f *
@@ -296,7 +282,7 @@ std::vector<NoiseLevel> GetNoiseLevel(
                 }
               } else {
                 for (int x_f = -1 * filt_size; x_f <= filt_size; ++x_f) {
-                  if ((static_cast<ptrdiff_t>(x_bl) + x_f) >= 0 &&
+                  if ((static_cast<ssize_t>(x_bl) + x_f) >= 0 &&
                       (x_bl + x_f) < block_s) {
                     filtered_value +=
                         0.5f *
@@ -362,7 +348,10 @@ Status GetNoiseParameter(const Image3F& opsin, NoiseParams* noise_params,
   std::vector<NoiseLevel> nl =
       GetNoiseLevel(opsin, sad_scores, sad_threshold, block_s);
 
-  OptimizeNoiseParameters(nl, noise_params, quality_coef * 1.4f);
+  OptimizeNoiseParameters(nl, noise_params);
+  for (float& i : noise_params->lut) {
+    i *= quality_coef * 1.4;
+  }
   return noise_params->HasAny();
 }
 

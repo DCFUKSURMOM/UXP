@@ -8,7 +8,6 @@
 // the internals of the jxl namespace.
 
 #include <jxl/decode.h>
-#include <stddef.h>
 
 int main(void) {
   if (!JxlDecoderVersion()) return 1;

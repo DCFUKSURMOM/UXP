@@ -2455,7 +2455,7 @@ ContentChild::RecvUpdateWindow(const uintptr_t& aChildId)
   if (parentInstance) {
   // sync! update call to the plugin instance that forces the
   // plugin to paint its child window.
-  Unused << parentInstance->CallUpdateWindow();
+  parentInstance->CallUpdateWindow();
   }
   return true;
 #else

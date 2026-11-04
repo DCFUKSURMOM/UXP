@@ -695,7 +695,7 @@ nsContentList::ContentAppended(nsIDocument* aDocument, nsIContent* aContainer,
       !MayContainRelevantNodes(aContainer) ||
       (!aFirstNewContent->HasChildren() &&
        !aFirstNewContent->GetNextSibling() &&
-       !MatchSelf<MatchSelfMode::Insertion>(aFirstNewContent))) {
+       !MatchSelf(aFirstNewContent))) {
     return;
   }
 
@@ -731,7 +731,7 @@ nsContentList::ContentAppended(nsIDocument* aDocument, nsIContent* aContainer,
       // The new stuff is somewhere in the middle of our list; check
       // whether we need to invalidate
       for (nsIContent* cur = aFirstNewContent; cur; cur = cur->GetNextSibling()) {
-        if (MatchSelf<MatchSelfMode::Insertion>(cur)) {
+        if (MatchSelf(cur)) {
           // Uh-oh.  We're gonna have to add elements into the middle
           // of our list. That's not worth the effort.
           SetDirty();
@@ -788,7 +788,7 @@ nsContentList::ContentInserted(nsIDocument *aDocument,
   if (mState != LIST_DIRTY &&
       MayContainRelevantNodes(NODE_FROM(aContainer, aDocument)) &&
       nsContentUtils::IsInSameAnonymousTree(mRootNode, aChild) &&
-      MatchSelf<MatchSelfMode::Insertion>(aChild)) {
+      MatchSelf(aChild)) {
     SetDirty();
   }
 
@@ -808,7 +808,7 @@ nsContentList::ContentRemoved(nsIDocument *aDocument,
   if (mState != LIST_DIRTY &&
       MayContainRelevantNodes(NODE_FROM(aContainer, aDocument)) &&
       nsContentUtils::IsInSameAnonymousTree(mRootNode, aChild) &&
-      MatchSelf<MatchSelfMode::Removal>(aChild)) {
+      MatchSelf(aChild)) {
     SetDirty();
   }
 
@@ -853,7 +853,6 @@ nsContentList::Match(Element *aElement)
                      ni->Equals(mXMLMatchAtom, mMatchNameSpaceId);
 }
 
-template <nsContentList::MatchSelfMode Mode>
 bool 
 nsContentList::MatchSelf(nsIContent *aContent)
 {
@@ -865,20 +864,8 @@ nsContentList::MatchSelf(nsIContent *aContent)
     return false;
   }
   
-  auto matches = [&](Element* aElement) {
-    if (Match(aElement)) {
-      return true;
-    }
-    if constexpr (Mode == MatchSelfMode::Removal) {
-      return mFunc == nsContentUtils::MatchClassNames &&
-             aElement->IsSVGElement() && aElement->MayHaveClass();
-    }
-    return false;
-  };
-
-  if (matches(aContent->AsElement())) {
+  if (Match(aContent->AsElement()))
     return true;
-  }
 
   if (!mDeep)
     return false;
@@ -886,7 +873,7 @@ nsContentList::MatchSelf(nsIContent *aContent)
   for (nsIContent* cur = aContent->GetFirstChild();
        cur;
        cur = cur->GetNextNode(aContent)) {
-    if (cur->IsElement() && matches(cur->AsElement())) {
+    if (cur->IsElement() && Match(cur->AsElement())) {
       return true;
     }
   }

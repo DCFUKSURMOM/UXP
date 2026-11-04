@@ -24,21 +24,15 @@
  *  Skia's 32bit backend only supports 1 sizzle order at a time (compile-time).
  *  This is specified by 4 defines SK_A32_SHIFT, SK_R32_SHIFT, ... for G and B.
  *
- *  For easier compatibility with Skia's GPU backend, Skia normally restricts
- *  these to either (in memory-byte-order) RGBA or BGRA. Mozilla's big-endian
- *  PowerPC port uses CoreGraphics' native ARGB pixels, so we also accept ARGB.
- *  Note that this "order" does not directly correspond to the same shift-order,
- *  since we have to take endianess into account.
+ *  For easier compatibility with Skia's GPU backend, we further restrict these
+ *  to either (in memory-byte-order) RGBA or BGRA. Note that this "order" does
+ *  not directly correspond to the same shift-order, since we have to take endianess
+ *  into account.
  *
  *  Here we enforce this constraint.
  */
 
 #ifdef SK_CPU_BENDIAN
-    #define SK_ARGB_A32_SHIFT   24
-    #define SK_ARGB_R32_SHIFT   16
-    #define SK_ARGB_G32_SHIFT   8
-    #define SK_ARGB_B32_SHIFT   0
-
     #define SK_RGBA_R32_SHIFT   24
     #define SK_RGBA_G32_SHIFT   16
     #define SK_RGBA_B32_SHIFT   8
@@ -49,11 +43,6 @@
     #define SK_BGRA_R32_SHIFT   8
     #define SK_BGRA_A32_SHIFT   0
 #else
-    #define SK_ARGB_A32_SHIFT   0
-    #define SK_ARGB_R32_SHIFT   8
-    #define SK_ARGB_G32_SHIFT   16
-    #define SK_ARGB_B32_SHIFT   24
-
     #define SK_RGBA_R32_SHIFT   0
     #define SK_RGBA_G32_SHIFT   8
     #define SK_RGBA_B32_SHIFT   16
@@ -65,17 +54,9 @@
     #define SK_BGRA_A32_SHIFT   24
 #endif
 
-#if (defined(SK_PMCOLOR_IS_RGBA) && defined(SK_PMCOLOR_IS_BGRA)) || \
-    (defined(SK_PMCOLOR_IS_RGBA) && defined(SK_PMCOLOR_IS_ARGB)) || \
-    (defined(SK_PMCOLOR_IS_BGRA) && defined(SK_PMCOLOR_IS_ARGB))
-    #error "can't define PMCOLOR to more than one byte order"
+#if defined(SK_PMCOLOR_IS_RGBA) && defined(SK_PMCOLOR_IS_BGRA)
+    #error "can't define PMCOLOR to be RGBA and BGRA"
 #endif
-
-#define LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_ARGB  \
-    (SK_A32_SHIFT == SK_ARGB_A32_SHIFT &&    \
-     SK_R32_SHIFT == SK_ARGB_R32_SHIFT &&    \
-     SK_G32_SHIFT == SK_ARGB_G32_SHIFT &&    \
-     SK_B32_SHIFT == SK_ARGB_B32_SHIFT)
 
 #define LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_RGBA  \
     (SK_A32_SHIFT == SK_RGBA_A32_SHIFT &&    \
@@ -95,10 +76,6 @@
 #define SK_G_INDEX  (SK_G32_SHIFT/8)
 #define SK_B_INDEX  (SK_B32_SHIFT/8)
 
-#if defined(SK_PMCOLOR_IS_ARGB) && !LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_ARGB
-    #error "SK_PMCOLOR_IS_ARGB does not match SK_*32_SHIFT values"
-#endif
-
 #if defined(SK_PMCOLOR_IS_RGBA) && !LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_RGBA
     #error "SK_PMCOLOR_IS_RGBA does not match SK_*32_SHIFT values"
 #endif
@@ -107,22 +84,19 @@
     #error "SK_PMCOLOR_IS_BGRA does not match SK_*32_SHIFT values"
 #endif
 
-#if !defined(SK_PMCOLOR_IS_ARGB) && !defined(SK_PMCOLOR_IS_RGBA) && !defined(SK_PMCOLOR_IS_BGRA)
+#if !defined(SK_PMCOLOR_IS_RGBA) && !defined(SK_PMCOLOR_IS_BGRA)
     // deduce which to define from the _SHIFT defines
 
-    #if LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_ARGB
-        #define SK_PMCOLOR_IS_ARGB
-    #elif LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_RGBA
+    #if LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_RGBA
         #define SK_PMCOLOR_IS_RGBA
     #elif LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_BGRA
         #define SK_PMCOLOR_IS_BGRA
     #else
-        #error "need 32bit packing to be either ARGB, RGBA, or BGRA"
+        #error "need 32bit packing to be either RGBA or BGRA"
     #endif
 #endif
 
 // hide these now that we're done
-#undef LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_ARGB
 #undef LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_RGBA
 #undef LOCAL_PMCOLOR_SHIFTS_EQUIVALENT_TO_BGRA
 
@@ -157,38 +131,19 @@ static inline uint32_t SkPackARGB_as_BGRA(U8CPU a, U8CPU r, U8CPU g, U8CPU b) {
            (g << SK_BGRA_G32_SHIFT) | (b << SK_BGRA_B32_SHIFT);
 }
 
-static inline SkPMColor SkPackARGB_as_PMColor(U8CPU a, U8CPU r, U8CPU g, U8CPU b) {
-    SkASSERT_IS_BYTE(a);
-    SkASSERT_IS_BYTE(r);
-    SkASSERT_IS_BYTE(g);
-    SkASSERT_IS_BYTE(b);
-    return (a << SK_A32_SHIFT) | (r << SK_R32_SHIFT) |
-           (g << SK_G32_SHIFT) | (b << SK_B32_SHIFT);
-}
-
 static inline SkPMColor SkSwizzle_RGBA_to_PMColor(uint32_t c) {
 #ifdef SK_PMCOLOR_IS_RGBA
     return c;
-#elif defined(SK_PMCOLOR_IS_BGRA)
-    return SkSwizzle_RB(c);
 #else
-    return SkPackARGB_as_PMColor((c >> SK_RGBA_A32_SHIFT) & 0xFF,
-                                 (c >> SK_RGBA_R32_SHIFT) & 0xFF,
-                                 (c >> SK_RGBA_G32_SHIFT) & 0xFF,
-                                 (c >> SK_RGBA_B32_SHIFT) & 0xFF);
+    return SkSwizzle_RB(c);
 #endif
 }
 
 static inline SkPMColor SkSwizzle_BGRA_to_PMColor(uint32_t c) {
 #ifdef SK_PMCOLOR_IS_BGRA
     return c;
-#elif defined(SK_PMCOLOR_IS_RGBA)
-    return SkSwizzle_RB(c);
 #else
-    return SkPackARGB_as_PMColor((c >> SK_BGRA_A32_SHIFT) & 0xFF,
-                                 (c >> SK_BGRA_R32_SHIFT) & 0xFF,
-                                 (c >> SK_BGRA_G32_SHIFT) & 0xFF,
-                                 (c >> SK_BGRA_B32_SHIFT) & 0xFF);
+    return SkSwizzle_RB(c);
 #endif
 }
 
@@ -457,7 +412,8 @@ static inline SkPMColor SkPackARGB32(U8CPU a, U8CPU r, U8CPU g, U8CPU b) {
     SkASSERT(g <= a);
     SkASSERT(b <= a);
 
-    return SkPackARGB_as_PMColor(a, r, g, b);
+    return (a << SK_A32_SHIFT) | (r << SK_R32_SHIFT) |
+           (g << SK_G32_SHIFT) | (b << SK_B32_SHIFT);
 }
 
 static inline uint32_t SkPackPMColor_as_RGBA(SkPMColor c) {
@@ -591,7 +547,8 @@ static inline SkPMColor SkFastFourByteInterp(SkPMColor src,
  *  values are premultiplied in the debug version.
  */
 static inline SkPMColor SkPackARGB32NoCheck(U8CPU a, U8CPU r, U8CPU g, U8CPU b) {
-    return SkPackARGB_as_PMColor(a, r, g, b);
+    return (a << SK_A32_SHIFT) | (r << SK_R32_SHIFT) |
+           (g << SK_G32_SHIFT) | (b << SK_B32_SHIFT);
 }
 
 static inline

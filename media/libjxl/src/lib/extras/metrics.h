@@ -6,18 +6,16 @@
 #ifndef LIB_EXTRAS_METRICS_H_
 #define LIB_EXTRAS_METRICS_H_
 
-#include <jxl/cms_interface.h>
+#include <stdint.h>
 
-#include "lib/jxl/base/status.h"
 #include "lib/jxl/butteraugli/butteraugli.h"
-#include "lib/jxl/image.h"
 #include "lib/jxl/image_bundle.h"
 
 namespace jxl {
 
 // Computes p-norm given the butteraugli distmap.
-StatusOr<double> ComputeDistanceP(const ImageF& distmap,
-                                  const ButteraugliParams& params, double p);
+double ComputeDistanceP(const ImageF& distmap, const ButteraugliParams& params,
+                        double p);
 
 double ComputeDistance2(const ImageBundle& ib1, const ImageBundle& ib2,
                         const JxlCmsInterface& cms);

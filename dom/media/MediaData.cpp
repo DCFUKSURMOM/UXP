@@ -265,10 +265,6 @@ VideoData::SetVideoDataToImage(PlanarYCbCrImage* aVideoImage,
     return false;
   }
 
-  if (!ValidateBufferAndPicture(aBuffer, aPicture)) {
-    return false;
-  }
-
   PlanarYCbCrData data = ConstructPlanarYCbCrData(aInfo, aBuffer, aPicture);
 
   aVideoImage->SetDelayedConversion(true);

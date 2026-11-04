@@ -5,15 +5,11 @@
 
 #include "lib/extras/dec/color_hints.h"
 
-#include <jxl/color_encoding.h>
+#include <jxl/encode.h>
 
-#include <cstdint>
-#include <string>
-#include <utility>
 #include <vector>
 
 #include "lib/extras/dec/color_description.h"
-#include "lib/extras/packed_image.h"
 #include "lib/jxl/base/status.h"
 
 namespace jxl {

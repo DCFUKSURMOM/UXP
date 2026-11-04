@@ -69,11 +69,7 @@ WeakRef_deref_impl(JSContext* cx, const CallArgs& args)
     }
 
     if (data->isObject()) {
-        // Use unbarrieredGet() to avoid barriers on potentially invalid memory.
-        JSObject* target = data->objectTarget.unbarrieredGet();
-        
-        // Ensure pointer is not null.
-        // During WeakRef deref, if the target was collected, it will be nullptr.
+        JSObject* target = data->objectTarget.get();
         if (target) {
             RootedValue kept(cx, ObjectValue(*target));
             if (!cx->runtime()->addWeakRefKeptObject(cx, kept))
@@ -84,9 +80,7 @@ WeakRef_deref_impl(JSContext* cx, const CallArgs& args)
         }
     } else {
         MOZ_ASSERT(data->isSymbol());
-        JS::Symbol* target = data->symbolTarget.unbarrieredGet();
-        
-        // Ensure pointer is not null.
+        JS::Symbol* target = data->symbolTarget.get();
         if (target) {
             RootedValue kept(cx, SymbolValue(target));
             if (!cx->runtime()->addWeakRefKeptObject(cx, kept))

@@ -93,8 +93,7 @@ public:
   virtual ~D3D9DXVA2Manager();
 
   HRESULT Init(layers::KnowsCompositor* aKnowsCompositor,
-               nsACString& aFailureReason,
-               const GUID* aDecoderGUID);
+               nsACString& aFailureReason);
 
   IUnknown* GetDXVADeviceManager() override;
 
@@ -103,10 +102,6 @@ public:
   HRESULT CopyToImage(IMFSample* aVideoSample,
                       const nsIntRect& aRegion,
                       Image** aOutImage) override;
-
-  HRESULT CopySurfaceToImage(IDirect3DSurface9* aSurface,
-                             const nsIntRect& aRegion,
-                             Image** aOutImage) override;
 
   bool SupportsConfig(IMFMediaType* aType, float aFramerate) override;
 
@@ -272,8 +267,7 @@ D3D9DXVA2Manager::GetDXVADeviceManager()
 
 HRESULT
 D3D9DXVA2Manager::Init(layers::KnowsCompositor* aKnowsCompositor,
-                       nsACString& aFailureReason,
-                       const GUID* aDecoderGUID)
+                       nsACString& aFailureReason)
 {
   MOZ_ASSERT(NS_IsMainThread());
 
@@ -394,9 +388,8 @@ D3D9DXVA2Manager::Init(layers::KnowsCompositor* aKnowsCompositor,
 
   bool found = false;
   for (UINT i = 0; i < deviceCount; i++) {
-    if (aDecoderGUID ? decoderDevices[i] == *aDecoderGUID :
-        (decoderDevices[i] == DXVA2_ModeH264_E ||
-         decoderDevices[i] == DXVA2_Intel_ModeH264_E)) {
+    if (decoderDevices[i] == DXVA2_ModeH264_E ||
+        decoderDevices[i] == DXVA2_Intel_ModeH264_E) {
       mDecoderGUID = decoderDevices[i];
       found = true;
       break;
@@ -469,17 +462,8 @@ D3D9DXVA2Manager::CopyToImage(IMFSample* aSample,
                          getter_AddRefs(surface));
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
-  return CopySurfaceToImage(surface, aRegion, aOutImage);
-}
-
-HRESULT
-D3D9DXVA2Manager::CopySurfaceToImage(IDirect3DSurface9* surface,
-                                    const nsIntRect& aRegion,
-                                    Image** aOutImage)
-{
-
   RefPtr<D3D9SurfaceImage> image = new D3D9SurfaceImage();
-  HRESULT hr = image->AllocateAndCopy(mTextureClientAllocator, surface, aRegion);
+  hr = image->AllocateAndCopy(mTextureClientAllocator, surface, aRegion);
   NS_ENSURE_TRUE(SUCCEEDED(hr), hr);
 
   RefPtr<IDirect3DSurface9> sourceSurf = image->GetD3D9Surface();
@@ -508,8 +492,7 @@ static uint32_t sDXVAVideosCount = 0;
 /* static */
 DXVA2Manager*
 DXVA2Manager::CreateD3D9DXVA(layers::KnowsCompositor* aKnowsCompositor,
-                             nsACString& aFailureReason,
-                             const GUID* aDecoderGUID)
+                             nsACString& aFailureReason)
 {
   MOZ_ASSERT(NS_IsMainThread());
   HRESULT hr;
@@ -524,7 +507,7 @@ DXVA2Manager::CreateD3D9DXVA(layers::KnowsCompositor* aKnowsCompositor,
   }
 
   nsAutoPtr<D3D9DXVA2Manager> d3d9Manager(new D3D9DXVA2Manager());
-  hr = d3d9Manager->Init(aKnowsCompositor, aFailureReason, aDecoderGUID);
+  hr = d3d9Manager->Init(aKnowsCompositor, aFailureReason);
   if (SUCCEEDED(hr)) {
     return d3d9Manager.forget();
   }

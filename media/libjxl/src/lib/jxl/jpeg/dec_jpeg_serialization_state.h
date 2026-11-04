@@ -7,8 +7,6 @@
 #define LIB_JXL_JPEG_DEC_JPEG_SERIALIZATION_STATE_H_
 
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
 #include <deque>
 #include <vector>
 

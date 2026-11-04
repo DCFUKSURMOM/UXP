@@ -152,7 +152,7 @@ js::ThisThread::SetName(const char* name)
 
   int rv = 0;
 #ifdef XP_DARWIN
-#ifdef __clang__
+#ifndef __ppc__
   rv = pthread_setname_np(name);
 #endif
 #elif defined(__DragonFly__) || defined(__FreeBSD__) || defined(__OpenBSD__)

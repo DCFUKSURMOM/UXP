@@ -450,14 +450,10 @@ class GradientStopsCG : public GradientStops
         offsets.push_back(aStops[i].offset);
       }
 
-      CGColorSpaceRef gradientColorSpace =
-        aColorSpace ? CGColorSpaceRetain(aColorSpace)
-                    : CGColorSpaceCreateDeviceRGB();
-      mGradient = CGGradientCreateWithColorComponents(gradientColorSpace,
+      mGradient = CGGradientCreateWithColorComponents(aColorSpace,
                                                       &colors.front(),
                                                       &offsets.front(),
                                                       offsets.size());
-      CGColorSpaceRelease(gradientColorSpace);
     } else {
       mStops = aStops;
     }
@@ -571,15 +567,6 @@ CalculateRepeatingGradientParams(CGPoint *aStart, CGPoint *aEnd,
   *aRepeatEndFactor = t_max;
 }
 
-static CGColorSpaceRef
-CreateGradientColorSpace(CGColorSpaceRef aColorSpace)
-{
-  // A8 draw targets have no CGContext color space. On 10.5, passing null to
-  // CGGradientCreateWithColorComponents fails, so create the gradient in RGB.
-  return aColorSpace ? CGColorSpaceRetain(aColorSpace)
-                     : CGColorSpaceCreateDeviceRGB();
-}
-
 static CGGradientRef
 CreateRepeatingGradient(CGColorSpaceRef aColorSpace,
                         CGContextRef cg, GradientStopsCG* aStops,
@@ -612,12 +599,10 @@ CreateRepeatingGradient(CGColorSpaceRef aColorSpace,
     }
   }
 
-  CGColorSpaceRef gradientColorSpace = CreateGradientColorSpace(aColorSpace);
-  CGGradientRef gradient = CGGradientCreateWithColorComponents(gradientColorSpace,
+  CGGradientRef gradient = CGGradientCreateWithColorComponents(aColorSpace,
                                                                &colors.front(),
                                                                &offsets.front(),
                                                                repeatCount*stopCount);
-  CGColorSpaceRelease(gradientColorSpace);
   return gradient;
 }
 

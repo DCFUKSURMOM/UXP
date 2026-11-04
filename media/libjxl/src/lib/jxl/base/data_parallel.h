@@ -24,8 +24,6 @@
 
 namespace jxl {
 
-struct ThreadPoolNoInit {};
-
 class ThreadPool {
  public:
   ThreadPool(JxlParallelRunner runner, void* runner_opaque)
@@ -79,7 +77,7 @@ class ThreadPool {
   }
 
   // Use this as init_func when no initialization is needed.
-  static constexpr ThreadPoolNoInit NoInit{};
+  static Status NoInit(size_t num_threads) { return true; }
 
  private:
   // class holding the state of a Run() call to pass to the runner_ as an
@@ -97,7 +95,7 @@ class ThreadPool {
       // Returns -1 when the internal init function returns false Status to
       // indicate an error.
       if (!self->init_func_(num_threads)) {
-        self->has_error_ = 1;
+        self->has_error_ = true;
         return JXL_PARALLEL_RET_RUNNER_ERROR;
       }
       return JXL_PARALLEL_RET_SUCCESS;
@@ -110,16 +108,16 @@ class ThreadPool {
           static_cast<RunCallState<InitFunc, DataFunc>*>(jpegxl_opaque);
       if (self->has_error_) return;
       if (!self->data_func_(value, thread_id)) {
-        self->has_error_ = 1;
+        self->has_error_ = true;
       }
     }
 
-    bool HasError() const { return has_error_ != 0; }
+    bool HasError() const { return has_error_; }
 
    private:
     const InitFunc& init_func_;
     const DataFunc& data_func_;
-    std::atomic<uint32_t> has_error_{0};
+    std::atomic<bool> has_error_{false};
   };
 
   // The caller supplied runner function and its opaque void*.
@@ -137,14 +135,6 @@ Status RunOnPool(ThreadPool* pool, const uint32_t begin, const uint32_t end,
   } else {
     return pool->Run(begin, end, init_func, data_func, caller);
   }
-}
-
-template <class DataFunc>
-Status RunOnPool(ThreadPool* pool, const uint32_t begin, const uint32_t end,
-                 const ThreadPoolNoInit& no_init_func,
-                 const DataFunc& data_func, const char* caller) {
-  const auto init_func = [](size_t num_threads) -> Status { return true; };
-  return RunOnPool(pool, begin, end, init_func, data_func, caller);
 }
 
 }  // namespace jxl

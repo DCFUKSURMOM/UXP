@@ -5,19 +5,15 @@
 
 #include "lib/jxl/render_pipeline/render_pipeline.h"
 
-#include <cstddef>
+#include <jxl/memory_manager.h>
+
 #include <memory>
 #include <utility>
-#include <vector>
 
-#include "lib/jxl/base/common.h"
 #include "lib/jxl/base/rect.h"
 #include "lib/jxl/base/sanitizers.h"
 #include "lib/jxl/base/status.h"
-#include "lib/jxl/frame_dimensions.h"
-#include "lib/jxl/image.h"
 #include "lib/jxl/render_pipeline/low_memory_render_pipeline.h"
-#include "lib/jxl/render_pipeline/render_pipeline_stage.h"
 #include "lib/jxl/render_pipeline/simple_render_pipeline.h"
 
 namespace jxl {

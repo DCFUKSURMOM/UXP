@@ -7,7 +7,6 @@
 
 #include <jxl/decode.h>
 #include <jxl/memory_manager.h>
-#include <jxl/types.h>
 
 #include <algorithm>
 #include <cstddef>
@@ -25,7 +24,6 @@
 #include "lib/jxl/base/data_parallel.h"
 #include "lib/jxl/base/printf_macros.h"
 #include "lib/jxl/base/rect.h"
-#include "lib/jxl/base/span.h"
 #include "lib/jxl/base/status.h"
 #include "lib/jxl/chroma_from_luma.h"
 #include "lib/jxl/coeff_order.h"
@@ -244,9 +242,8 @@ Status FrameDecoder::InitFrameOutput() {
           1 << frame_header_.chroma_subsampling.RawHShift(c);
       component.v_samp_factor =
           1 << frame_header_.chroma_subsampling.RawVShift(c);
-      size_t num_blocks = static_cast<size_t>(component.width_in_blocks) *
-                          component.height_in_blocks;
-      component.coeffs.resize(num_blocks * jxl::kDCTBlockSize);
+      component.coeffs.resize(component.width_in_blocks *
+                              component.height_in_blocks * jxl::kDCTBlockSize);
     }
   }
 
@@ -270,11 +267,11 @@ Status FrameDecoder::ProcessDCGlobal(BitReader* br) {
   PassesSharedState& shared = dec_state_->shared_storage;
   JxlMemoryManager* memory_manager = shared.memory_manager;
   if (frame_header_.flags & FrameHeader::kPatches) {
-    bool uses_extra_channels;
+    bool uses_extra_channels = false;
     JXL_RETURN_IF_ERROR(shared.image_features.patches.Decode(
         memory_manager, br, frame_dim_.xsize_padded, frame_dim_.ysize_padded,
         shared.metadata->m.num_extra_channels, &uses_extra_channels));
-    if (frame_header_.upsampling != 1) {
+    if (uses_extra_channels && frame_header_.upsampling != 1) {
       for (size_t ecups : frame_header_.extra_channel_upsampling) {
         if (ecups != frame_header_.upsampling) {
           return JXL_FAILURE(
@@ -289,7 +286,7 @@ Status FrameDecoder::ProcessDCGlobal(BitReader* br) {
   shared.image_features.splines.Clear();
   if (frame_header_.flags & FrameHeader::kSplines) {
     JXL_RETURN_IF_ERROR(shared.image_features.splines.Decode(
-        br, frame_dim_.xsize * frame_dim_.ysize));
+        memory_manager, br, frame_dim_.xsize * frame_dim_.ysize));
   }
   if (frame_header_.flags & FrameHeader::kNoise) {
     JXL_RETURN_IF_ERROR(DecodeNoise(br, &shared.image_features.noise_params));
@@ -478,7 +475,8 @@ Status FrameDecoder::ProcessACGlobal(BitReader* br) {
   return true;
 }
 
-Status FrameDecoder::ProcessACGroup(size_t ac_group_id, PassesReaders& br,
+Status FrameDecoder::ProcessACGroup(size_t ac_group_id,
+                                    BitReader* JXL_RESTRICT* br,
                                     size_t num_passes, size_t thread,
                                     bool force_draw, bool dc_only) {
   size_t group_dim = frame_dim_.group_dim;
@@ -502,7 +500,7 @@ Status FrameDecoder::ProcessACGroup(size_t ac_group_id, PassesReaders& br,
     JXL_RETURN_IF_ERROR(group_dec_caches_[thread].InitOnce(
         memory_manager, frame_header_.passes.num_passes, dec_state_->used_acs));
     JXL_RETURN_IF_ERROR(DecodeGroup(
-        frame_header_, br.data(), num_passes, ac_group_id, dec_state_,
+        frame_header_, br, num_passes, ac_group_id, dec_state_,
         &group_dec_caches_[thread], thread, render_pipeline_input,
         decoded_->jpeg_data.get(), decoded_passes_per_ac_group_[ac_group_id],
         force_draw, dc_only, &should_run_pipeline));
@@ -521,13 +519,12 @@ Status FrameDecoder::ProcessACGroup(size_t ac_group_id, PassesReaders& br,
     bool modular_pass_ready = true;
     JXL_DEBUG_V(2, "Decoding modular in group %d pass %d",
                 static_cast<int>(ac_group_id), static_cast<int>(i));
-    if (i < pass0 + num_passes) {  // i.e. i - pass0 < num_passes
-      BitReader* r = br[i - pass0];
-      JXL_ENSURE(r);
+    if (i < pass0 + num_passes) {
       JXL_DEBUG_V(2, "Bit reader position: %" PRIuS " / %" PRIuS,
-                  r->TotalBitsConsumed(), r->TotalBytes() * kBitsPerByte);
+                  br[i - pass0]->TotalBitsConsumed(),
+                  br[i - pass0]->TotalBytes() * kBitsPerByte);
       JXL_RETURN_IF_ERROR(modular_frame_decoder_.DecodeGroup(
-          frame_header_, mrect, r, minShift, maxShift,
+          frame_header_, mrect, br[i - pass0], minShift, maxShift,
           ModularStreamId::ModularAC(ac_group_id, i),
           /*zerofill=*/false, dec_state_, &render_pipeline_input,
           /*allow_truncated=*/false, &modular_pass_ready));
@@ -709,8 +706,9 @@ Status FrameDecoder::ProcessSections(const SectionInfo* sections, size_t num,
         // no new AC pass, nothing to do
         return true;
       }
+      (void)num;
       size_t first_pass = decoded_passes_per_ac_group_[g];
-      PassesReaders readers = {};
+      BitReader* JXL_RESTRICT readers[kMaxNumPasses];
       for (size_t i = 0; i < desired_num_ac_passes[g]; i++) {
         JXL_ENSURE(ac_group_sec[g][first_pass + i] != num);
         readers[i] = sections[ac_group_sec[g][first_pass + i]].br;
@@ -776,7 +774,7 @@ Status FrameDecoder::Flush() {
         // This group was drawn already, nothing to do.
         return true;
       }
-      PassesReaders readers = {};
+      BitReader* JXL_RESTRICT readers[kMaxNumPasses] = {};
       JXL_RETURN_IF_ERROR(ProcessACGroup(
           g, readers, /*num_passes=*/0, GetStorageLocation(thread, g),
           /*force_draw=*/true, /*dc_only=*/!decoded_ac_global_));

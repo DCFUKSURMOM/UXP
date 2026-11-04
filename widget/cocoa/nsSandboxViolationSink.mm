@@ -32,7 +32,7 @@ nsSandboxViolationSink::Start()
   if (mNotifyToken) {
     return;
   }
-#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6) && defined(__clang__)
+#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
   notify_register_dispatch(SANDBOX_VIOLATION_NOTIFICATION_NAME,
                            &mNotifyToken,
                            dispatch_queue_create(SANDBOX_VIOLATION_QUEUE_NAME,
@@ -49,7 +49,7 @@ nsSandboxViolationSink::Stop()
   if (!mNotifyToken) {
     return;
   }
-#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6) && defined(__clang__)
+#if defined(MAC_OS_X_VERSION_10_6) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6)
   notify_cancel(mNotifyToken);
 #endif
   mNotifyToken = 0;

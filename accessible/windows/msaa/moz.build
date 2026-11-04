@@ -23,6 +23,7 @@ SOURCES += [
     'DocAccessibleWrap.cpp',
     'EnumVariant.cpp',
     'HTMLTableAccessibleWrap.cpp',
+    'HTMLWin32ObjectAccessible.cpp',
     'HyperTextAccessibleWrap.cpp',
     'ImageAccessibleWrap.cpp',
     'IUnknownImpl.cpp',

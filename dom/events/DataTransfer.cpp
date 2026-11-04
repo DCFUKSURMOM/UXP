@@ -682,19 +682,16 @@ DataTransfer::SetDataAtInternal(const nsAString& aFormat, nsIVariant* aData,
     return NS_ERROR_DOM_INDEX_SIZE_ERR;
   }
 
-  nsAutoString format;
-  GetRealFormat(aFormat, format);
-
   // Don't allow the custom type to be assigned.
-  if (format.EqualsLiteral(kCustomTypesMime)) {
+  if (aFormat.EqualsLiteral(kCustomTypesMime)) {
     return NS_ERROR_TYPE_ERR;
   }
 
-  if (!PrincipalMaySetData(format, aData, aSubjectPrincipal)) {
+  if (!PrincipalMaySetData(aFormat, aData, aSubjectPrincipal)) {
     return NS_ERROR_DOM_SECURITY_ERR;
   }
 
-  return SetDataWithPrincipal(format, aData, aIndex, aSubjectPrincipal);
+  return SetDataWithPrincipal(aFormat, aData, aIndex, aSubjectPrincipal);
 }
 
 void

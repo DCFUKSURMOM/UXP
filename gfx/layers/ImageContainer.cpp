@@ -632,13 +632,9 @@ NVImage::GetAsSourceSurface()
 
   // Convert the current NV12 or NV21 data to YUV420P so that we can follow the
   // logics in PlanarYCbCrImage::GetAsSourceSurface().
-  auto bufferLength = CheckedInt<uint32_t>(mData.mYSize.height) * mData.mYStride +
-                      CheckedInt<uint32_t>(mData.mCbCrSize.height) * mData.mCbCrSize.width * 2;
-  if (!bufferLength.isValid()) {
-    NS_ERROR("Image buffer length exceeds integer limits.");
-    return nullptr;
-  }
-  uint8_t* buffer = new uint8_t[bufferLength.value()];
+  const int bufferLength = mData.mYSize.height * mData.mYStride +
+                           mData.mCbCrSize.height * mData.mCbCrSize.width * 2;
+  uint8_t* buffer = new uint8_t[bufferLength];
 
   Data aData = mData;
   aData.mCbCrStride = aData.mCbCrSize.width;

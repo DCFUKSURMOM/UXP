@@ -130,7 +130,6 @@ Assembler::executableCopy(uint8_t* buffer)
 {
     // Copy the code and all constant pools into the output buffer.
     armbuffer_.executableCopy(buffer);
-    AutoFlushICache::setRange(uintptr_t(buffer), armbuffer_.size());
 
     // Patch any relative jumps that target code outside the buffer.
     // The extended jump table may be used for distant jumps.
@@ -372,7 +371,6 @@ Assembler::ToggleToJmp(CodeLocationLabel inst_)
     MOZ_ASSERT(vixl::is_int19(imm19));
 
     b(i, imm19, Always);
-    AutoFlushICache::flush(uintptr_t(i), vixl::kInstructionSize);
 }
 
 void
@@ -397,7 +395,6 @@ Assembler::ToggleToCmp(CodeLocationLabel inst_)
     // From the above, there is a safe 19-bit contiguous region from 5:23.
     Emit(i, vixl::ThirtyTwoBits | vixl::AddSubImmediateFixed | vixl::SUB | Flags(vixl::SetFlags) |
             Rd(vixl::xzr) | (imm19 << vixl::Rn_offset));
-    AutoFlushICache::flush(uintptr_t(i), vixl::kInstructionSize);
 }
 
 void
@@ -448,8 +445,6 @@ Assembler::ToggleCall(CodeLocationLabel inst_, bool enabled)
         ldr(load, ScratchReg2_64, int32_t(offset));
         blr(call, ScratchReg2_64);
     }
-    AutoFlushICache::flush(uintptr_t(load), vixl::kInstructionSize);
-    AutoFlushICache::flush(uintptr_t(call), vixl::kInstructionSize);
 }
 
 class RelocationIterator

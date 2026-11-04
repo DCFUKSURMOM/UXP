@@ -445,14 +445,11 @@ nssTrustDomain_InitializeCache(
     NSSTrustDomain *td,
     PRUint32 cacheSize);
 
-// Takes an owned reference to cert and either moves it to the cache (on
-// success) or drops it (on failure).
-// Returns a strong reference to the cache-owned cert (NB: which may be
-// different from the given cert!) or NULL.
-NSS_EXTERN NSSCertificate *
-nssTrustDomain_AddCertToCache(
+NSS_EXTERN PRStatus
+nssTrustDomain_AddCertsToCache(
     NSSTrustDomain *td,
-    NSSCertificate *cert);
+    NSSCertificate **certs,
+    PRUint32 numCerts);
 
 NSS_EXTERN void
 nssTrustDomain_RemoveCertFromCacheLOCKED(

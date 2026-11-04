@@ -1415,7 +1415,6 @@ BackgroundFactoryRequestChild::BackgroundFactoryRequestChild(
                                                uint64_t aRequestedVersion)
   : BackgroundRequestChildBase(aOpenRequest)
   , mFactory(aFactory)
-  , mDatabaseActor(nullptr)
   , mRequestedVersion(aRequestedVersion)
   , mIsDeleteOp(aIsDeleteOp)
 {
@@ -1440,15 +1439,6 @@ BackgroundFactoryRequestChild::GetOpenDBRequest() const
   return static_cast<IDBOpenDBRequest*>(mRequest.get());
 }
 
-void
-BackgroundFactoryRequestChild::SetDatabaseActor(BackgroundDatabaseChild* aActor)
-{
-  AssertIsOnOwningThread();
-  MOZ_ASSERT(!aActor || !mDatabaseActor);
-
-  mDatabaseActor = aActor;
-}
-
 bool
 BackgroundFactoryRequestChild::HandleResponse(nsresult aResponse)
 {
@@ -1459,11 +1449,6 @@ BackgroundFactoryRequestChild::HandleResponse(nsresult aResponse)
   mRequest->Reset();
 
   DispatchErrorEvent(mRequest, aResponse);
-
-  if (mDatabaseActor) {
-    mDatabaseActor->ReleaseDOMObject();
-    MOZ_ASSERT(!mDatabaseActor);
-  }
 
   return true;
 }
@@ -1483,15 +1468,12 @@ BackgroundFactoryRequestChild::HandleResponse(
   IDBDatabase* database = databaseActor->GetDOMObject();
   if (!database) {
     databaseActor->EnsureDOMObject();
-    MOZ_ASSERT(mDatabaseActor);
 
     database = databaseActor->GetDOMObject();
     MOZ_ASSERT(database);
 
     MOZ_ASSERT(!database->IsClosed());
   }
-
-  MOZ_ASSERT(mDatabaseActor == databaseActor);
 
   if (database->IsClosed()) {
     // If the database was closed already, which is only possible if we fired an
@@ -1505,7 +1487,6 @@ BackgroundFactoryRequestChild::HandleResponse(
   }
 
   databaseActor->ReleaseDOMObject();
-  MOZ_ASSERT(!mDatabaseActor);
 
   return true;
 }
@@ -1525,8 +1506,6 @@ BackgroundFactoryRequestChild::HandleResponse(
   MOZ_ASSERT(successEvent);
 
   DispatchSuccessEvent(&helper, successEvent);
-
-  MOZ_ASSERT(!mDatabaseActor);
 
   return true;
 }
@@ -1758,8 +1737,6 @@ BackgroundDatabaseChild::EnsureDOMObject()
 
   mDatabase = mTemporaryStrongDatabase;
   mSpec.forget();
-
-  mOpenRequestActor->SetDatabaseActor(this);
 }
 
 void
@@ -1770,8 +1747,6 @@ BackgroundDatabaseChild::ReleaseDOMObject()
   mTemporaryStrongDatabase->AssertIsOnOwningThread();
   MOZ_ASSERT(mOpenRequestActor);
   MOZ_ASSERT(mDatabase == mTemporaryStrongDatabase);
-
-  mOpenRequestActor->SetDatabaseActor(nullptr);
 
   mOpenRequestActor = nullptr;
 

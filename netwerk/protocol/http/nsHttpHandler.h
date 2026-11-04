@@ -39,6 +39,7 @@ extern Atomic<PRThread*, Relaxed> gSocketThread;
 
 class ATokenBucketEvent;
 class EventTokenBucket;
+class Tickler;
 class nsHttpConnection;
 class nsHttpConnectionInfo;
 class nsHttpTransaction;
@@ -244,6 +245,7 @@ public:
                                 nsIInterfaceRequestor *callbacks,
                                 uint32_t caps = 0)
     {
+        TickleWifi(callbacks);
         RefPtr<nsHttpConnectionInfo> clone = ci->Clone();
         return mConnMgr->SpeculativeConnect(clone, callbacks, caps);
     }
@@ -642,6 +644,10 @@ public:
             mRequestTokenBucket = nullptr;
         }
     }
+
+private:
+    RefPtr<Tickler> mWifiTickler;
+    void TickleWifi(nsIInterfaceRequestor *cb);
 
 private:
     nsresult SpeculativeConnectInternal(nsIURI *aURI,

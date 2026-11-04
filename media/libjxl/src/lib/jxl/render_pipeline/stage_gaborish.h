@@ -5,8 +5,12 @@
 
 #ifndef LIB_JXL_RENDER_PIPELINE_STAGE_GABORISH_H_
 #define LIB_JXL_RENDER_PIPELINE_STAGE_GABORISH_H_
+#include <math.h>
+#include <stdint.h>
 
-#include <memory>
+#include <algorithm>
+#include <utility>
+#include <vector>
 
 #include "lib/jxl/loop_filter.h"
 #include "lib/jxl/render_pipeline/render_pipeline_stage.h"

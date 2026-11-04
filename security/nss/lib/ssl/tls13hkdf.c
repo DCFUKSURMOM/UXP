@@ -165,7 +165,7 @@ tls13_HkdfExpandLabelGeneral(CK_MECHANISM_TYPE deriveMech, PK11SymKey *prk,
     PORT_Assert(keyp);
     if ((handshakeHashLen > 255) ||
         (handshakeHash == NULL && handshakeHashLen > 0) ||
-        (labelLen > 255 - kLabelPrefixLen)) {
+        (labelLen + kLabelPrefixLen > 255)) {
         PORT_SetError(SEC_ERROR_INVALID_ARGS);
         return SECFailure;
     }

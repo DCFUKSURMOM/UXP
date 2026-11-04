@@ -201,7 +201,7 @@
       'conditions': [
         [ 'target_arch=="ia32"', {
           'sources': [
-            'mpi/mpi_sse2.S',
+            'mpi/mpi_sse2.s',
           ],
           'defines': [
             'MP_USE_UINT_DIGIT',

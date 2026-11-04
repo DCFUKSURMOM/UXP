@@ -1307,8 +1307,6 @@ DocAccessible::UnbindFromDocument(Accessible* aAccessible)
 {
   NS_ASSERTION(mAccessibleCache.GetWeak(aAccessible->UniqueID()),
                "Unbinding the unbound accessible!");
-  MOZ_ASSERT(!mARIAOwnsHash.Contains(aAccessible),
-             "Container still lingering in mARIAOwnsHash");
 
   // Fire focus event on accessible having DOM focus if active item was removed
   // from the tree.

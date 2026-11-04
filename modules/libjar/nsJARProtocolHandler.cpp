@@ -111,11 +111,9 @@ nsJARProtocolHandler::GetDefaultPort(int32_t *result)
 NS_IMETHODIMP
 nsJARProtocolHandler::GetProtocolFlags(uint32_t *result)
 {
-    // A jar: URI is only ever as loadable as the inner URI it
-    // wraps, and security checks consult the innermost URI. Claim
-    // the restrictive flag here so that consumers which look at the
-    // jar: handler alone don't treat it as web-loadable.
-    *result = URI_NORELATIVE | URI_NOAUTH | URI_IS_LOCAL_FILE;
+    // URI_LOADABLE_BY_ANYONE, since it's our inner URI that will matter
+    // anyway.
+    *result = URI_NORELATIVE | URI_NOAUTH | URI_LOADABLE_BY_ANYONE;
     /* Although jar uris have their own concept of relative urls
        it is very different from the standard behaviour, so we
        have to say norelative here! */

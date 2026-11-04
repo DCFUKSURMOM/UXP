@@ -14,7 +14,6 @@
 #include <memory>
 #include <utility>
 
-#include "lib/jxl/base/common.h"
 #include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/status.h"
 
@@ -71,9 +70,9 @@ template <typename T>
 using MemoryManagerUniquePtr = std::unique_ptr<T, MemoryManagerDeleteHelper>;
 
 // Creates a new object T allocating it with the memory allocator into a
-// unique_ptr; not to be used outside JXL_MEMORY_MANAGER_MAKE_UNIQUE_OR_RETURN.
+// unique_ptr.
 template <typename T, typename... Args>
-JXL_INLINE MemoryManagerUniquePtr<T> MemoryManagerMakeUniquePrivate(
+JXL_INLINE MemoryManagerUniquePtr<T> MemoryManagerMakeUnique(
     const JxlMemoryManager* memory_manager, Args&&... args) {
   T* mem =
       static_cast<T*>(memory_manager->alloc(memory_manager->opaque, sizeof(T)));
@@ -86,19 +85,9 @@ JXL_INLINE MemoryManagerUniquePtr<T> MemoryManagerMakeUniquePrivate(
                                    MemoryManagerDeleteHelper(memory_manager));
 }
 
-// NOLINTBEGIN(bugprone-macro-parentheses)
-// NB: ARGS should be in parentheses on instantiation side; it contains
-//     arguments for MemoryManagerMakeUniquePrivate, including `memory_manager`.
-#define JXL_MEMORY_MANAGER_MAKE_UNIQUE_OR_RETURN(NAME, TYPE, ARGS, RETURN) \
-  auto NAME = ::jxl::MemoryManagerMakeUniquePrivate<TYPE> ARGS;            \
-  if (!NAME) {                                                             \
-    return RETURN;                                                         \
-  }
-// NOLINTEND(bugprone-macro-parentheses)
-
 // Returns recommended distance in bytes between the start of two consecutive
 // rows.
-StatusOr<size_t> BytesPerRow(size_t xsize, size_t sizeof_t);
+size_t BytesPerRow(size_t xsize, size_t sizeof_t);
 
 class AlignedMemory {
  public:
@@ -146,10 +135,7 @@ class AlignedArray {
 
   static StatusOr<AlignedArray> Create(JxlMemoryManager* memory_manager,
                                        size_t size) {
-    size_t storage_size;
-    if (!SafeMul(size, sizeof(T), storage_size)) {
-      return JXL_FAILURE("Allocation too large");
-    }
+    size_t storage_size = size * sizeof(T);
     JXL_ASSIGN_OR_RETURN(AlignedMemory storage,
                          AlignedMemory::Create(memory_manager, storage_size));
     T* items = storage.address<T>();

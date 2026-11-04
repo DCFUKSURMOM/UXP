@@ -28,8 +28,7 @@ public:
 
 protected:
   void DoForward(nsIStyleRule* aRule) {
-    mCurrent = mCurrent->Transition(aRule, mLevel, mImportance,
-                                    mLayerIndex);
+    mCurrent = mCurrent->Transition(aRule, mLevel, mImportance);
     NS_POSTCONDITION(mCurrent, "Transition messed up");
   }
 
@@ -62,16 +61,10 @@ public:
                  "important rules");
     mLevel = aLevel;
     mImportance = aImportance;
-    mLayerIndex = 0;
     mCheckForImportantRules = aCheckForImportantRules;
   }
   mozilla::SheetType GetLevel() const { return mLevel; }
   bool GetImportance() const { return mImportance; }
-  void SetLayerIndex(int32_t aLayerIndex) {
-    MOZ_ASSERT(aLayerIndex >= 0, "negative cascade layer index");
-    mLayerIndex = aLayerIndex;
-  }
-  int32_t GetLayerIndex() const { return mLayerIndex; }
   bool GetCheckForImportantRules() const { return mCheckForImportantRules; }
 
   bool AuthorStyleDisabled() const { return mAuthorStyleDisabled; }
@@ -94,7 +87,6 @@ private:
   nsRuleNode* mCurrent; // Our current position.  Never null.
   nsRuleNode* mRoot; // The root of the tree we're walking.
   mozilla::SheetType mLevel;
-  int32_t mLayerIndex;
   bool mImportance;
   bool mCheckForImportantRules; // If true, check for important rules as
                                 // we walk and set to false if we find
@@ -105,10 +97,6 @@ public:
   nsRuleWalker(nsRuleNode* aRoot, bool aAuthorStyleDisabled)
     : mCurrent(aRoot)
     , mRoot(aRoot)
-    , mLevel(mozilla::SheetType::Unknown)
-    , mLayerIndex(0)
-    , mImportance(false)
-    , mCheckForImportantRules(false)
     , mAuthorStyleDisabled(aAuthorStyleDisabled)
   {
     NS_ASSERTION(mCurrent, "Caller screwed up and gave us null node");

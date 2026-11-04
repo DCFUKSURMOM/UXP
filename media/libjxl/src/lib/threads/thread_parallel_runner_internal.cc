@@ -15,6 +15,8 @@
 #include <mutex>
 #include <thread>
 
+#include "lib/jxl/base/compiler_specific.h"
+
 namespace jpegxl {
 
 // static
@@ -165,11 +167,13 @@ ThreadParallelRunner::~ThreadParallelRunner() {
   }
 
   for (std::thread& thread : threads_) {
-    if (!thread.joinable()) {
-      // Should not ever happen.
-      // TODO(eustas): do we need to log some alert?
-    } else {
+    if (thread.joinable()) {
       thread.join();
+    } else {
+#if JXL_IS_DEBUG_BUILD
+      JXL_PRINT_STACK_TRACE();
+      JXL_CRASH();
+#endif
     }
   }
 }

@@ -94,6 +94,8 @@ RasterImage::RasterImage(ImageURL* aURI /* = nullptr */) :
 //******************************************************************************
 RasterImage::~RasterImage()
 {
+  mIsBeingDestroyed = true;
+
   // Make sure our SourceBuffer is marked as complete. This will ensure that any
   // outstanding decoders terminate.
   if (!mSourceBuffer->IsComplete()) {
@@ -429,17 +431,15 @@ RasterImage::OnSurfaceDiscarded(const SurfaceKey& aSurfaceKey)
 {
   MOZ_ASSERT(mProgressTracker);
 
+  if (mIsBeingDestroyed) {
+    return;
+  }
+
   bool animatedFramesDiscarded = aSurfaceKey.Playback() == PlaybackType::eAnimated;
 
-  RefPtr<ProgressTracker> progressTracker = mProgressTracker;
-  NS_DispatchToMainThread(NS_NewRunnableFunction(
-      [progressTracker, animatedFramesDiscarded]() -> void {
-        RefPtr<Image> image = progressTracker->GetImage();
-        if (!image) {
-          return;
-        }
-        static_cast<RasterImage*>(image.get())
-            ->OnSurfaceDiscardedInternal(animatedFramesDiscarded);
+  RefPtr<RasterImage> image = this;
+  NS_DispatchToMainThread(NS_NewRunnableFunction([=]() -> void {
+    image->OnSurfaceDiscardedInternal(animatedFramesDiscarded);
   }));
 }
 
@@ -1637,13 +1637,10 @@ RasterImage::NotifyDecodeComplete(const DecoderFinalStatus& aStatus,
 
   if (!(aDecoderFlags & DecoderFlags::FIRST_FRAME_ONLY) &&
       mHasBeenDecoded && mAnimationState) {
-    // If we've successfully finished a full decode of all animation frames
-    // then let our animation state know it's complete and to not to expect
-    // any more frames.
-    if (aStatus.mFinished && !aStatus.mHadError) {
-      mAnimationState->NotifyDecodeComplete();
-      mAnimationState->UpdateState(mAnimationFinished, this, mSize);
-    }
+    // We've finished a full decode of all animation frames and our AnimationState
+    // has been notified about them all, so let it know not to expect anymore.
+    mAnimationState->NotifyDecodeComplete();
+    mAnimationState->UpdateState(mAnimationFinished, this, mSize);
   }
 
   // Only act on errors if we have no usable frames from the decoder.

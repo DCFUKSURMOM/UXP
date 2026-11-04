@@ -5,8 +5,6 @@
 
 #include "lib/jxl/jpeg/enc_jpeg_huffman_decode.h"
 
-#include <cstdint>
-
 #include "lib/jxl/jpeg/jpeg_data.h"
 
 namespace jxl {

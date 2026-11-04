@@ -11,8 +11,7 @@ DIRS += [
     'ffmpeg58',
     'ffmpeg59',
     'ffmpeg60',
-    'ffmpeg61',
-    'ffmpeg62',
+	'ffmpeg61',
 ]
 
 UNIFIED_SOURCES += [

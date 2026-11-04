@@ -25,11 +25,6 @@ foreach(brlib IN ITEMS ${brlibs})
     HINTS ${PC_${BRPREFIX}_LIBDIR} ${PC_${BRPREFIX}_LIBRARY_DIRS}
   )
 
-  find_library(${BRPREFIX}_DEBUG_LIBRARY
-    NAMES ${${BRPREFIX}_DEBUG_NAMES} ${brlib}d
-    HINTS ${PC_${BRPREFIX}_LIBDIR} ${PC_${BRPREFIX}_LIBRARY_DIRS}
-  )
-
   if (${BRPREFIX}_LIBRARY AND NOT TARGET ${brlib})
     if(CMAKE_VERSION VERSION_LESS "3.13.5")
     add_library(${brlib} INTERFACE IMPORTED GLOBAL)
@@ -40,15 +35,8 @@ foreach(brlib IN ITEMS ${brlibs})
     add_library(${brlib} INTERFACE IMPORTED GLOBAL)
       target_include_directories(${brlib}
         INTERFACE ${BROTLI_INCLUDE_DIR})
-      if (${BRPREFIX}_DEBUG_LIBRARY)
-        target_link_libraries(${brlib}
-          INTERFACE debug ${${BRPREFIX}_DEBUG_LIBRARY})
-        target_link_libraries(${brlib}
-          INTERFACE optimized ${${BRPREFIX}_LIBRARY})
-      else()
-        target_link_libraries(${brlib}
-          INTERFACE ${${BRPREFIX}_LIBRARY})
-      endif()
+      target_link_libraries(${brlib}
+        INTERFACE ${${BRPREFIX}_LIBRARY})
       target_link_options(${brlib}
         INTERFACE ${PC_${BRPREFIX}_LDFLAGS_OTHER})
       target_compile_options(${brlib}

@@ -5,8 +5,6 @@
 
 // Adapters for DCT input/output: from/to contiguous blocks or image rows.
 
-#include "lib/jxl/base/compiler_specific.h"
-
 #if defined(LIB_JXL_DCT_BLOCK_INL_H_) == defined(HWY_TARGET_TOGGLE)
 #ifdef LIB_JXL_DCT_BLOCK_INL_H_
 #undef LIB_JXL_DCT_BLOCK_INL_H_
@@ -14,11 +12,11 @@
 #define LIB_JXL_DCT_BLOCK_INL_H_
 #endif
 
-#include <cstddef>
+#include <stddef.h>
+
 #include <hwy/highway.h>
 
 #include "lib/jxl/base/status.h"
-
 HWY_BEFORE_NAMESPACE();
 namespace jxl {
 namespace HWY_NAMESPACE {

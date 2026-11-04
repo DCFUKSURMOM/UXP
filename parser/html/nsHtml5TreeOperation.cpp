@@ -41,7 +41,6 @@
 #include "nsIHTMLDocument.h"
 #include "mozilla/Likely.h"
 #include "nsTextNode.h"
-#include "mozilla/Preferences.h"
 
 using namespace mozilla;
 
@@ -691,11 +690,6 @@ nsHtml5TreeOperation::CreateMathMLElement(nsIAtom* aName,
 void
 nsHtml5TreeOperation::SetFormElement(nsIContent* aNode, nsIContent* aParent)
 {
-  // sFormSubtreeStrict is a pref to temporarily disable this check. See UXP #3197
-  bool sFormSubtreeStrict = mozilla::Preferences::GetBool("html5.forms.standards_compliant", true);
-  if (sFormSubtreeStrict && aNode->SubtreeRoot() != aParent->SubtreeRoot()) {
-    return;
-  }
   nsCOMPtr<nsIFormControl> formControl(do_QueryInterface(aNode));
   nsCOMPtr<nsIDOMHTMLImageElement> domImageElement = do_QueryInterface(aNode);
   // NS_ASSERTION(formControl, "Form-associated element did not implement nsIFormControl.");
@@ -710,9 +704,7 @@ nsHtml5TreeOperation::SetFormElement(nsIContent* aNode, nsIContent* aParent)
     RefPtr<dom::HTMLImageElement> imageElement =
       static_cast<dom::HTMLImageElement*>(domImageElement.get());
     MOZ_ASSERT(imageElement);
-    if (!imageElement->GetForm()) {
-      imageElement->SetForm(formElement);
-    }
+    imageElement->SetForm(formElement);
   }
 }
 

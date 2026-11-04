@@ -921,7 +921,7 @@ private:
   // List of nodes referred to by mEntryTable so we can sort them
   // For a specific pseudo element, we use its parent element as the
   // batch target, so they will be put in the same EntryArray.
-  nsTArray<nsCOMPtr<nsINode>> mBatchTargets;
+  nsTArray<nsINode*> mBatchTargets;
 };
 
 inline

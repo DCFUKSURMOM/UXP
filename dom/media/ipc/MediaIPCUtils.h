@@ -25,7 +25,7 @@ namespace IPC {
       WriteParam(aMsg, aParam.mDisplay);
       WriteParam(aMsg, aParam.mStereoMode);
       WriteParam(aMsg, aParam.mImage);
-      WriteParam(aMsg, aParam.mImageRect);
+      WriteParam(aMsg, aParam.ImageRect());
     }
 
     static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
@@ -35,7 +35,8 @@ namespace IPC {
           ReadParam(aMsg, aIter, &aResult->mDisplay) &&
           ReadParam(aMsg, aIter, &aResult->mStereoMode) &&
           ReadParam(aMsg, aIter, &aResult->mImage) &&
-          ReadParam(aMsg, aIter, &aResult->mImageRect)) {
+          ReadParam(aMsg, aIter, &imageRect)) {
+        aResult->SetImageRect(imageRect);
         return true;
       }
       return false;

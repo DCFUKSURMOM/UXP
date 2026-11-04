@@ -105,7 +105,7 @@ extern int32_t             gXULModalLevel;
 
 static bool gAppShellMethodsSwizzled = false;
 
-#ifndef __clang__
+#ifdef __ppc__
 #pragma GCC push_optimize
 #pragma GCC optimize ("-O1")
 #endif
@@ -148,7 +148,7 @@ static bool gAppShellMethodsSwizzled = false;
 
 @end
 
-#ifndef __clang__
+#ifdef __ppc__
 #pragma GCC pop_optimize
 #endif
 

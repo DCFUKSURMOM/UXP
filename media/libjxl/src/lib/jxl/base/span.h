@@ -77,7 +77,7 @@ class Span {
   size_t len_;
 };
 
-using Bytes = Span<const uint8_t>;
+typedef Span<const uint8_t> Bytes;
 
 }  // namespace jxl
 

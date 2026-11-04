@@ -231,13 +231,11 @@ gfxTextRun::ComputeLigatureData(Range aPartRange,
     LigatureData result;
     const CompressedGlyph *charGlyphs = mCharacterGlyphs;
 
-    uint32_t i = aPartRange.start;
-    while (i && !charGlyphs[i].IsLigatureGroupStart()) {
-        --i;
+    uint32_t i;
+    for (i = aPartRange.start; !charGlyphs[i].IsLigatureGroupStart(); --i) {
+        NS_ASSERTION(i > 0, "Ligature at the start of the run??");
     }
-    NS_ASSERTION(charGlyphs[i].IsLigatureGroupStart(), "Ligature at run start?");
     result.mRange.start = i;
-
     for (i = aPartRange.start + 1;
          i < GetLength() && !charGlyphs[i].IsLigatureGroupStart(); ++i) {
     }
@@ -1706,27 +1704,21 @@ gfxFontGroup::GetFontAt(int32_t i, uint32_t aCh)
 
     RefPtr<gfxFont> font = ff.Font();
     if (!font) {
-        RefPtr<gfxFontEntry> fe = ff.FontEntry();
-        if (!fe) {
-            return nullptr;
-        }
-        RefPtr<gfxCharacterMap> unicodeRangeMap;
+        gfxFontEntry* fe = mFonts[i].FontEntry();
+        gfxCharacterMap* unicodeRangeMap = nullptr;
         if (fe->mIsUserFontContainer) {
-            // This raw pointer is OK because fe holds a strong ref to the object.
-            gfxUserFontEntry* ufe = static_cast<gfxUserFontEntry*>(fe.get());
+            gfxUserFontEntry* ufe = static_cast<gfxUserFontEntry*>(fe);
             if (ufe->LoadState() == gfxUserFontEntry::STATUS_NOT_LOADED &&
                 ufe->CharacterInUnicodeRange(aCh) &&
                 !FontLoadingForFamily(ff.Family(), aCh)) {
                 ufe->Load();
                 ff.CheckState(mSkipDrawing);
             }
-            unicodeRangeMap = ufe->GetUnicodeRangeMap();
-            // Update fe to refer to the actual platform font entry, rather than the
-            // webfont wrapper. After this, we no longer have a strong ref to ufe.
             fe = ufe->GetPlatformFontEntry();
             if (!fe) {
                 return nullptr;
             }
+            unicodeRangeMap = ufe->GetUnicodeRangeMap();
         }
         font = fe->FindOrMakeFont(&mStyle, mFonts[i].NeedsBold(),
                                   unicodeRangeMap);
@@ -2761,7 +2753,7 @@ gfxFontGroup::FindFontForChar(uint32_t aCh, uint32_t aPrevCh, uint32_t aNextCh,
                     ufe->Load();
                     ff.CheckState(mSkipDrawing);
                 }
-                RefPtr<gfxFontEntry> pfe = ufe->GetPlatformFontEntry();
+                gfxFontEntry* pfe = ufe->GetPlatformFontEntry();
                 if (pfe && pfe->HasCharacter(aCh)) {
                     font = GetFontAt(i, aCh);
                     if (font) {

@@ -8,10 +8,9 @@
 #ifndef LIB_JXL_JPEG_ENC_JPEG_DATA_READER_H_
 #define LIB_JXL_JPEG_ENC_JPEG_DATA_READER_H_
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
 
-#include "lib/jxl/base/status.h"
 #include "lib/jxl/jpeg/jpeg_data.h"
 
 namespace jxl {
@@ -28,8 +27,8 @@ enum class JpegReadMode {
 // If mode is kReadHeader, it fills in only the image dimensions in *jpg.
 // Returns false if the data is not valid JPEG, or if it contains an unsupported
 // JPEG feature.
-Status ReadJpeg(const uint8_t* data, size_t len, JpegReadMode mode,
-                JPEGData* jpg);
+bool ReadJpeg(const uint8_t* data, size_t len, JpegReadMode mode,
+              JPEGData* jpg);
 
 }  // namespace jpeg
 }  // namespace jxl

@@ -6,12 +6,9 @@
 #ifndef LIB_JXL_MODULAR_TRANSFORM_ENC_PALETTE_H_
 #define LIB_JXL_MODULAR_TRANSFORM_ENC_PALETTE_H_
 
-#include <cstdint>
-
-#include "lib/jxl/base/status.h"
+#include "lib/jxl/fields.h"
 #include "lib/jxl/modular/encoding/context_predict.h"
 #include "lib/jxl/modular/modular_image.h"
-#include "lib/jxl/modular/options.h"
 
 namespace jxl {
 

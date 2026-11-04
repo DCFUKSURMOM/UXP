@@ -3,7 +3,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-#include <cstdlib>
+#include <stdlib.h>
+
+#include <algorithm>
 
 #include "lib/jxl/enc_gamma_correct.h"
 #include "lib/jxl/testing.h"

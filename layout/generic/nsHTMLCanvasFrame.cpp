@@ -225,7 +225,7 @@ nsHTMLCanvasFrame::ComputeSize(nsRenderingContext *aRenderingContext,
   intrinsicSize.width.SetCoordValue(nsPresContext::CSSPixelsToAppUnits(size.width));
   intrinsicSize.height.SetCoordValue(nsPresContext::CSSPixelsToAppUnits(size.height));
 
-  AspectRatio intrinsicRatio = GetAspectRatio();
+  AspectRatio intrinsicRatio = GetIntrinsicRatio();
 
   return ComputeSizeWithIntrinsicDimensions(aRenderingContext, aWM,
                                             intrinsicSize, intrinsicRatio,
@@ -424,3 +424,4 @@ nsHTMLCanvasFrame::GetFrameName(nsAString& aResult) const
   return MakeFrameName(NS_LITERAL_STRING("HTMLCanvas"), aResult);
 }
 #endif
+

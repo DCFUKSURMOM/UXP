@@ -158,8 +158,6 @@ class JSObject : public js::gc::Cell
      * object will have its group constructed lazily as needed by analysis.
      */
     bool isSingleton() const {
-        // In some cases, group_ might be null.
-        if (!group_) return false;
         return group_->singleton();
     }
 
@@ -897,6 +895,10 @@ GetElementNoGC(JSContext* cx, JSObject* obj, JSObject* receiver, uint32_t index,
  * try. Long story short, if you just want bog-standard assignment, pass
  * `ObjectValue(*obj)` as receiver. Or better, use one of the signatures that
  * doesn't have a receiver parameter.
+ *
+ * Callers pass obj != receiver e.g. when a proxy is involved, obj is the
+ * proxy's target, and the proxy is using SetProperty to finish an assignment
+ * that started out as `receiver[id] = v`, by delegating it to obj.
  */
 inline bool
 SetProperty(JSContext* cx, HandleObject obj, HandleId id, HandleValue v,
@@ -1267,7 +1269,9 @@ FromPropertyDescriptorToObject(JSContext* cx, Handle<JS::PropertyDescriptor> des
 extern bool
 IsDelegate(JSContext* cx, HandleObject obj, const Value& v, bool* result);
 
-bool
+// obj is a JSObject*, but we root it immediately up front. We do it
+// that way because we need a Rooted temporary in this method anyway.
+extern bool
 IsDelegateOfObject(JSContext* cx, HandleObject protoObj, JSObject* obj, bool* result);
 
 /* Wrap boolean, number or string as Boolean, Number or String object. */

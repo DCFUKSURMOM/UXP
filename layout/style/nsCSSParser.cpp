@@ -127,9 +127,7 @@ enum class SelectorParsingFlags {
   eDisallowCombinators     = 1 << 2,
   eDisallowPseudoElements  = 1 << 3,
   eInheritNamespace        = 1 << 4,
-  eForceEmptyList          = 1 << 5,
-  eIsRelativeSelector      = 1 << 6,
-  eInsideHas               = 1 << 7
+  eForceEmptyList          = 1 << 5
 };
 MOZ_MAKE_ENUM_CLASS_BITWISE_OPERATORS(SelectorParsingFlags)
 
@@ -4227,8 +4225,8 @@ CSSParserImpl::ParseMediaQueryExpression(nsMediaQuery* aQuery)
       {
         AutoRestore<bool> autoRestore(mCalcAllowsTypedArithmetic);
         mCalcAllowsTypedArithmetic = true;
-        rv = ParseNonNegativeVariant(expr->mValue, VARIANT_LCALC,
-                                                nullptr) == CSSParseResult::Ok;
+        rv = ParseSingleTokenNonNegativeVariant(expr->mValue, VARIANT_LCALC,
+                                                nullptr);
       }
       break;
     case nsMediaFeature::eInteger:
@@ -6454,28 +6452,6 @@ CSSParserImpl::ParseSelectorGroup(nsCSSSelectorList*& aList,
   char16_t combinator = 0;
   nsAutoPtr<nsCSSSelectorList> list(new nsCSSSelectorList());
 
-  if (aFlags & SelectorParsingFlags::eIsRelativeSelector) {
-    // A relative selector is evaluated as though it begins with an internal
-    // anchor and a combinator.  This must not use :scope: an explicit :scope
-    // in the argument continues to refer to the caller's scoping root.
-    // If the combinator is omitted, it is a descendant combinator.
-    nsCSSSelector* anchor = list->AddSelector(char16_t(0));
-    anchor->AddPseudoClass(CSSPseudoClassType::mozHasRelativeAnchor);
-    list->mIsRelativeSelector = true;
-
-    combinator = char16_t(' ');
-    if (GetToken(true)) {
-      if (mToken.mType == eCSSToken_Symbol &&
-          (mToken.mSymbol == '+' ||
-           mToken.mSymbol == '>' ||
-           mToken.mSymbol == '~')) {
-        combinator = mToken.mSymbol;
-      } else {
-        UngetToken();
-      }
-    }
-  }
-
   for (;;) {
     if (!ParseSelector(list, combinator, aFlags)) {
       return false;
@@ -7149,9 +7125,6 @@ CSSParserImpl::ParsePseudoSelector(int32_t&              aDataMask,
       if (aFlags & SelectorParsingFlags::eDisallowCombinators) {
         flags |= SelectorParsingFlags::eDisallowCombinators;
       }
-      if (aFlags & SelectorParsingFlags::eInsideHas) {
-        flags |= SelectorParsingFlags::eInsideHas;
-      }
       if (aFlags & SelectorParsingFlags::eForceEmptyList ||
           forceEmptyList) {
         flags |= SelectorParsingFlags::eForceEmptyList;
@@ -7597,15 +7570,7 @@ CSSParserImpl::ParsePseudoClassWithSelectorListArg(nsCSSSelector& aSelector,
   bool isSingleSelector =
     nsCSSPseudoClasses::HasSingleSelectorArg(aType);
 
-  if (aType == CSSPseudoClassType::has) {
-    // :has() takes an unforgiving <relative-selector-list>, cannot be nested,
-    // and cannot contain pseudo-elements.
-    if (aFlags & SelectorParsingFlags::eInsideHas) {
-      return eSelectorParsingStatus_Error;
-    }
-    aFlags |= SelectorParsingFlags::eIsRelativeSelector |
-              SelectorParsingFlags::eInsideHas;
-  } else if (nsCSSPseudoClasses::HasForgivingSelectorListArg(aType)) {
+  if (nsCSSPseudoClasses::HasForgivingSelectorListArg(aType)) {
     aFlags |= SelectorParsingFlags::eIsForgiving;
   } else if (isSingleSelector || aType == CSSPseudoClassType::mozAny) {
     aFlags |= SelectorParsingFlags::eDisallowCombinators;
@@ -9161,10 +9126,6 @@ CSSParserImpl::ParseVariant(nsCSSValue& aValue,
           aValue.SetRevertValue(mLevel);
           return CSSParseResult::Ok;
         }
-        else if (eCSSKeyword_revert_layer == keyword) {
-          aValue.SetRevertLayerValue();
-          return CSSParseResult::Ok;
-        }
       }
       if ((aVariantMask & VARIANT_NONE) != 0) {
         if (eCSSKeyword_none == keyword) {
@@ -9369,8 +9330,7 @@ CSSParserImpl::ParseVariant(nsCSSValue& aValue,
          tk->mIdent.LowerCaseEqualsLiteral("initial") ||
          (tk->mIdent.LowerCaseEqualsLiteral("unset") &&
           nsLayoutUtils::UnsetValueEnabled()) ||
-         tk->mIdent.LowerCaseEqualsLiteral("revert") ||
-         tk->mIdent.LowerCaseEqualsLiteral("revert-layer")))) {
+         tk->mIdent.LowerCaseEqualsLiteral("revert")))) {
     aValue.SetStringValue(tk->mIdent, eCSSUnit_Ident);
     return CSSParseResult::Ok;
   }
@@ -9446,7 +9406,6 @@ CSSParserImpl::ParseCustomIdent(nsCSSValue& aValue,
       keyword == eCSSKeyword_initial ||
       keyword == eCSSKeyword_unset ||
       keyword == eCSSKeyword_revert ||
-      keyword == eCSSKeyword_revert_layer ||
       keyword == eCSSKeyword_default ||
       (aPropertyKTable &&
         nsCSSProps::FindIndexOfKeyword(keyword, aPropertyKTable) >= 0)) {
@@ -12636,12 +12595,6 @@ CSSParserImpl::ParseChoice(nsCSSValue aValues[],
         }
         found = ((1 << aNumIDs) - 1);
       }
-      else if (eCSSUnit_RevertLayer == aValues[0].GetUnit()) { // one revert-layer, all revert-layer
-        for (loop = 1; loop < aNumIDs; loop++) {
-          aValues[loop].SetRevertLayerValue();
-        }
-        found = ((1 << aNumIDs) - 1);
-      }
     }
     else {  // more than one value, verify no inherits, initials, unsets, or reverts
       for (loop = 0; loop < aNumIDs; loop++) {
@@ -12657,8 +12610,7 @@ CSSParserImpl::ParseChoice(nsCSSValue aValues[],
           found = -1;
           break;
         }
-        else if (eCSSUnit_Revert == aValues[loop].GetUnit() ||
-                 eCSSUnit_RevertLayer == aValues[loop].GetUnit()) {
+        else if (eCSSUnit_Revert == aValues[loop].GetUnit()) {
           found = -1;
           break;
         }
@@ -12706,8 +12658,7 @@ CSSParserImpl::ParseBoxProperties(const nsCSSPropertyID aPropIDs[])
       if (eCSSUnit_Inherit == unit ||
           eCSSUnit_Initial == unit ||
           eCSSUnit_Unset == unit ||
-          eCSSUnit_Revert == unit ||
-          eCSSUnit_RevertLayer == unit) {
+          eCSSUnit_Revert == unit) {
         return false;
       }
     }
@@ -12815,8 +12766,7 @@ CSSParserImpl::ParseBoxCornerRadius(nsCSSPropertyID aPropID)
   if (dimenX.GetUnit() != eCSSUnit_Inherit &&
       dimenX.GetUnit() != eCSSUnit_Initial &&
       dimenX.GetUnit() != eCSSUnit_Unset &&
-      dimenX.GetUnit() != eCSSUnit_Revert &&
-      dimenX.GetUnit() != eCSSUnit_RevertLayer) {
+      dimenX.GetUnit() != eCSSUnit_Revert) {
     if (ParseNonNegativeVariant(dimenY, VARIANT_LP | VARIANT_CALC, nullptr) ==
         CSSParseResult::Error) {
       return false;
@@ -12881,8 +12831,7 @@ CSSParserImpl::ParseBoxCornerRadiiInternals(nsCSSValue array[])
     if (eCSSUnit_Inherit == unit ||
         eCSSUnit_Initial == unit ||
         eCSSUnit_Unset == unit ||
-        eCSSUnit_Revert == unit ||
-        eCSSUnit_RevertLayer == unit)
+        eCSSUnit_Revert == unit)
       return false;
   }
 
@@ -13454,24 +13403,23 @@ bool
 CSSParserImpl::ParseAspectRatioRatio(nsCSSValue& aValue)
 {
   nsCSSValue width;
-  if (ParseNonNegativeVariant(width, VARIANT_NUMBER | VARIANT_CALC,
-                              nullptr) != CSSParseResult::Ok) {
+  if (!ParseNonNegativeNumber(width)) {
     return false;
   }
 
-  nsCSSValue height;
-  height.SetFloatValue(1.0f, eCSSUnit_Number);
+  float w = width.GetFloatValue();
+  float h = 1.0f;
   if (ExpectSymbol('/', true)) {
-    if (ParseNonNegativeVariant(height, VARIANT_NUMBER | VARIANT_CALC,
-                                nullptr) != CSSParseResult::Ok) {
+    nsCSSValue height;
+    if (!ParseNonNegativeNumber(height)) {
       return false;
     }
+    h = height.GetFloatValue();
   }
 
-  // Keep both components: the computed value is a pair of numbers, and
-  // degenerate ratios still serialize as ratios even though they behave as
-  // auto during layout.
-  aValue.SetPairValue(width, height);
+  // Degenerate ratios behave as auto in layout.
+  aValue.SetFloatValue(w == 0.0f || h == 0.0f ? 0.0f : w / h,
+                       eCSSUnit_Number);
   return true;
 }
 
@@ -13494,15 +13442,9 @@ CSSParserImpl::ParseAspectRatio(nsCSSValue& aValue)
   if (hasRatio) {
     if (!hasAuto) {
       // The grammar is "auto || <ratio>", so auto may appear after the ratio.
-      hasAuto = ParseSingleTokenVariant(autoValue, VARIANT_AUTO, nullptr);
+      ParseSingleTokenVariant(autoValue, VARIANT_AUTO, nullptr);
     }
-    if (hasAuto) {
-      nsCSSValue combined;
-      combined.SetPairValue(autoValue, ratioValue);
-      aValue = combined;
-    } else {
-      aValue = ratioValue;
-    }
+    aValue = ratioValue;
     return true;
   }
 
@@ -13700,7 +13642,6 @@ CSSParserImpl::ParseFontDescriptorValue(nsCSSFontDesc aDescID,
             aValue.GetUnit() != eCSSUnit_Initial &&
             aValue.GetUnit() != eCSSUnit_Unset &&
             aValue.GetUnit() != eCSSUnit_Revert &&
-            aValue.GetUnit() != eCSSUnit_RevertLayer &&
             (aValue.GetUnit() != eCSSUnit_Enumerated ||
              (aValue.GetIntValue() != NS_STYLE_FONT_WEIGHT_BOLDER &&
               aValue.GetIntValue() != NS_STYLE_FONT_WEIGHT_LIGHTER)));
@@ -13964,8 +13905,7 @@ CSSParserImpl::ParseImageLayersItem(
       if (keyword == eCSSKeyword_inherit ||
           keyword == eCSSKeyword_initial ||
           keyword == eCSSKeyword_unset ||
-          keyword == eCSSKeyword_revert ||
-          keyword == eCSSKeyword_revert_layer) {
+          keyword == eCSSKeyword_revert) {
         return false;
       } else if (keyword == eCSSKeyword_none) {
         if (haveImage)
@@ -14322,8 +14262,7 @@ bool CSSParserImpl::ParseBoxPositionValues(nsCSSValuePair &aOut,
     if (eCSSUnit_Inherit == xValue.GetUnit() ||
         eCSSUnit_Initial == xValue.GetUnit() ||
         eCSSUnit_Unset == xValue.GetUnit() ||
-        eCSSUnit_Revert == xValue.GetUnit() ||
-        eCSSUnit_RevertLayer == xValue.GetUnit()) {
+        eCSSUnit_Revert == xValue.GetUnit()) {  // both are inherit, initial, unset, or revert
       yValue = xValue;
       return true;
     }
@@ -15155,7 +15094,6 @@ CSSParserImpl::ParseBorderSide(const nsCSSPropertyID aPropIDs[],
     case eCSSUnit_Initial:
     case eCSSUnit_Unset:
     case eCSSUnit_Revert:
-    case eCSSUnit_RevertLayer:
       extraValue = values[0];
       // Set value of border-image properties to initial/inherit/unset/revert
       AppendValue(eCSSProperty_border_image_source, extraValue);
@@ -15922,8 +15860,7 @@ CSSParserImpl::ParseFont()
     if (eCSSUnit_Inherit == family.GetUnit() ||
         eCSSUnit_Initial == family.GetUnit() ||
         eCSSUnit_Unset == family.GetUnit() ||
-        eCSSUnit_Revert == family.GetUnit() ||
-        eCSSUnit_RevertLayer == family.GetUnit()) {
+        eCSSUnit_Revert == family.GetUnit()) {
       AppendValue(eCSSProperty__x_system_font, nsCSSValue(eCSSUnit_None));
       AppendValue(eCSSProperty_font_family, family);
       AppendValue(eCSSProperty_font_style, family);
@@ -15992,8 +15929,7 @@ CSSParserImpl::ParseFont()
       eCSSUnit_Inherit == values[kFontStyleIndex].GetUnit() ||
       eCSSUnit_Initial == values[kFontStyleIndex].GetUnit() ||
       eCSSUnit_Unset == values[kFontStyleIndex].GetUnit() ||
-      eCSSUnit_Revert == values[kFontStyleIndex].GetUnit() ||
-      eCSSUnit_RevertLayer == values[kFontStyleIndex].GetUnit() ) { // illegal data
+      eCSSUnit_Revert == values[kFontStyleIndex].GetUnit() ) { // illegal data
     return false;
   }
   if ((found & (1 << kFontStyleIndex)) == 0) {
@@ -16052,8 +15988,7 @@ CSSParserImpl::ParseFont()
     if (eCSSUnit_Inherit != family.GetUnit() &&
         eCSSUnit_Initial != family.GetUnit() &&
         eCSSUnit_Unset != family.GetUnit() &&
-        eCSSUnit_Revert != family.GetUnit() &&
-        eCSSUnit_RevertLayer != family.GetUnit()) {
+        eCSSUnit_Revert != family.GetUnit()) {
       AppendValue(eCSSProperty__x_system_font, nsCSSValue(eCSSUnit_None));
       AppendValue(eCSSProperty_font_family, family);
       AppendValue(eCSSProperty_font_style, values[kFontStyleIndex]);
@@ -16099,8 +16034,7 @@ CSSParserImpl::ParseFontSynthesis(nsCSSValue& aValue)
       eCSSUnit_Initial == aValue.GetUnit() ||
       eCSSUnit_Inherit == aValue.GetUnit() ||
       eCSSUnit_Unset == aValue.GetUnit() ||
-      eCSSUnit_Revert == aValue.GetUnit() ||
-      eCSSUnit_RevertLayer == aValue.GetUnit() )
+      eCSSUnit_Revert == aValue.GetUnit() )
   {
     return true;
   }
@@ -16723,9 +16657,6 @@ CSSParserImpl::ParseFamily(nsCSSValue& aValue)
       case eCSSKeyword_revert:
         aValue.SetRevertValue(mLevel);
         return true;
-      case eCSSKeyword_revert_layer:
-        aValue.SetRevertLayerValue();
-        return true;
       case eCSSKeyword__moz_use_system_font:
         if (!IsParsingCompoundProperty()) {
           aValue.SetSystemFontValue();
@@ -16760,7 +16691,6 @@ CSSParserImpl::ParseFamily(nsCSSValue& aValue)
         case eCSSKeyword_initial:
         case eCSSKeyword_default:
         case eCSSKeyword_revert:
-        case eCSSKeyword_revert_layer:
         case eCSSKeyword__moz_use_system_font:
           return false;
         case eCSSKeyword_unset:
@@ -18410,8 +18340,7 @@ bool CSSParserImpl::ParseTransformOrigin(bool aPerspective)
   if (position.mXValue.GetUnit() == eCSSUnit_Inherit ||
       position.mXValue.GetUnit() == eCSSUnit_Initial ||
       position.mXValue.GetUnit() == eCSSUnit_Unset ||
-      position.mXValue.GetUnit() == eCSSUnit_Revert ||
-      position.mXValue.GetUnit() == eCSSUnit_RevertLayer) {
+      position.mXValue.GetUnit() == eCSSUnit_Revert) {
     MOZ_ASSERT(position.mXValue == position.mYValue,
                "inherit/initial/unset/revert only half?");
     AppendValue(prop, position.mXValue);
@@ -18635,15 +18564,14 @@ CSSParserImpl::ParseTransitionProperty()
       }
       if (cur->mValue.GetUnit() == eCSSUnit_Ident) {
         nsDependentString str(cur->mValue.GetStringBufferValue());
-        // Exclude CSS-wide keywords and 'none' according to the same rules
-        // as for 'counter-reset' in CSS 2.1.
+        // Exclude 'none', 'inherit', 'initial', 'unset', and 'revert'
+        // according to the same rules as for 'counter-reset' in CSS 2.1.
         if (str.LowerCaseEqualsLiteral("none") ||
             str.LowerCaseEqualsLiteral("inherit") ||
             str.LowerCaseEqualsLiteral("initial") ||
             (str.LowerCaseEqualsLiteral("unset") &&
              nsLayoutUtils::UnsetValueEnabled()) ||
-            str.LowerCaseEqualsLiteral("revert") ||
-            str.LowerCaseEqualsLiteral("revert-layer")) {
+            str.LowerCaseEqualsLiteral("revert")) {
           return false;
         }
       }
@@ -19556,7 +19484,8 @@ CSSParserImpl::ParseValueWithVariables(CSSVariableDeclarations::Type* aType,
     }
   }
 
-  // Look for CSS-wide keywords as the first non-white space token.
+  // Look for 'initial', 'inherit', 'unset', or 'revert' as the first
+  // non-white space token.
   CSSVariableDeclarations::Type type = CSSVariableDeclarations::eTokenStream;
   if (mToken.mType == eCSSToken_Ident) {
     if (mToken.mIdent.LowerCaseEqualsLiteral("initial")) {
@@ -19567,8 +19496,6 @@ CSSParserImpl::ParseValueWithVariables(CSSVariableDeclarations::Type* aType,
       type = CSSVariableDeclarations::eUnset;
     } else if (mToken.mIdent.LowerCaseEqualsLiteral("revert")) {
       type = CSSVariableDeclarations::eRevert;
-    } else if (mToken.mIdent.LowerCaseEqualsLiteral("revert-layer")) {
-      type = CSSVariableDeclarations::eRevertLayer;
     }
   }
 

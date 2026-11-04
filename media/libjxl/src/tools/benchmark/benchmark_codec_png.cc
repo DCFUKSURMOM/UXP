@@ -5,7 +5,9 @@
 
 #include "tools/benchmark/benchmark_codec_png.h"
 
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <string>
 #include <vector>
 

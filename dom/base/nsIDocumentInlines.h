@@ -46,9 +46,6 @@ nsIDocument::FindDocStyleSheetInsertionPoint(
           break;
         }
       }
-      if (sheet->IsConstructed()) {
-        break;
-      }
       if (sheet == GetFirstAdditionalAuthorSheet()) {
         break;
       }

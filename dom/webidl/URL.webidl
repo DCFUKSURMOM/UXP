@@ -23,7 +23,6 @@ interface URL {
   [Throws]
   stringifier;
   
-  static URL? parse(USVString url, optional USVString base);
   static boolean canParse(USVString url, optional USVString base);
 
   [Throws]

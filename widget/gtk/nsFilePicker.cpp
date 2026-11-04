@@ -466,7 +466,7 @@ nsFilePicker::Open(nsIFilePickerShownCallback *aCallback)
   }
 
   if (GTK_IS_DIALOG(file_chooser)) {
-    gtk_dialog_set_default_response(GTK_DIALOG(file_chooser), GTK_RESPONSE_CANCEL);
+    gtk_dialog_set_default_response(GTK_DIALOG(file_chooser), GTK_RESPONSE_ACCEPT);
   }
 
   int32_t count = mFilters.Length();

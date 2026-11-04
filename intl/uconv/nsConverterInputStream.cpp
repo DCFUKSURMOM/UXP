@@ -7,6 +7,7 @@
 #include "nsIInputStream.h"
 #include "nsReadLine.h"
 #include "nsStreamUtils.h"
+#include <algorithm>
 #include "mozilla/dom/EncodingUtils.h"
 
 using mozilla::dom::EncodingUtils;

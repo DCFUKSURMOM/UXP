@@ -3009,7 +3009,6 @@ nsLocalFile::IsExecutable(bool* aResult)
     }
 
     // Search for any of the set of executable extensions.
-    // Note: always use lower case here since we lowercase the extensions before comparing.
     static const char* const executableExts[] = {
       "ad",
       "ade",         // access project extension
@@ -3017,7 +3016,6 @@ nsLocalFile::IsExecutable(bool* aResult)
       "air",         // Adobe AIR installer
       "app",         // executable application
       "application", // from bug 348763
-      "appcontent-ms",
       "appref-ms",   // ClickOnce link
       "appx",
       "appxbundle",
@@ -3063,12 +3061,11 @@ nsLocalFile::IsExecutable(bool* aResult)
       "msc",
       "msh",         // Microsoft Shell
       "mshxml",      // Microsoft Shell
-      "msi",         // Standalone microsoft installer package
+      "msi",
       "msix",
       "msixbundle",
       "msp",
       "mst",
-      // "msu",         // Windows Update Standalone Installer. Gated by Windows on MS signatures already.
       "ops",         // Office Profile Settings
       "pcd",
       "pif",
@@ -3080,8 +3077,7 @@ nsLocalFile::IsExecutable(bool* aResult)
       "scf",         // Windows explorer command
       "scr",
       "sct",
-      "searchconnector-ms", // Windows Search connector installs an OpenSearch provider
-      "search-ms",          // Windows Saved Search
+      "search-ms",   // Windows Saved Search
       "settingcontent-ms",
       "shb",
       "shs",

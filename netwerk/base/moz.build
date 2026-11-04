@@ -245,6 +245,7 @@ UNIFIED_SOURCES += [
     'SimpleBuffer.cpp',
     'StreamingProtocolService.cpp',
     'ThrottleQueue.cpp',
+    'Tickler.cpp',
     'TLSServerSocket.cpp',
 ]
 

@@ -95,11 +95,6 @@ public:
            nsCSSTokenSerializationType aLastToken);
 
   /**
-   * Removes an entry in this set of variable values.
-   */
-  void Remove(const nsAString& aName);
-
-  /**
    * Copies the variables from this object into aResolver, marking them as
    * computed, inherited values.
    */

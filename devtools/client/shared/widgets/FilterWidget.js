@@ -99,14 +99,7 @@ const filterList = [
 ];
 
 // Valid values that shouldn't be parsed for filters.
-const SPECIAL_VALUES = new Set([
-  "none",
-  "unset",
-  "initial",
-  "inherit",
-  "revert",
-  "revert-layer"
-]);
+const SPECIAL_VALUES = new Set(["none", "unset", "initial", "inherit", "revert"]);
 
 /**
  * A CSS Filter editor widget used to add/remove/modify

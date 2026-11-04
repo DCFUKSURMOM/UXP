@@ -30,6 +30,8 @@
 #endif
 
 // It is fine to #include normal or *-inl headers.
+#include <stddef.h>
+
 #include "hwy/highway.h"
 
 HWY_BEFORE_NAMESPACE();

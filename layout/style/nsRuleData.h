@@ -31,7 +31,6 @@ struct nsRuleData
   mozilla::RuleNodeCacheConditions mConditions;
   bool mIsImportantRule;
   mozilla::SheetType mLevel;
-  int32_t mLayerIndex;
   nsPresContext* const mPresContext;
   nsStyleContext* const mStyleContext;
 

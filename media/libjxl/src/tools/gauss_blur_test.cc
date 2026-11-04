@@ -7,19 +7,14 @@
 
 #include <jxl/memory_manager.h>
 
-#include <algorithm>
 #include <cmath>
-#include <cstdio>
-#include <cstring>
 #include <hwy/base.h>  // HWY_ALIGN_MAX
+#include <hwy/targets.h>
 #include <vector>
 
-#include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/printf_macros.h"
-#include "lib/jxl/image.h"
 #include "lib/jxl/image_ops.h"
 #include "lib/jxl/image_test_utils.h"
-#include "lib/jxl/memory_manager_internal.h"
 #include "lib/jxl/test_memory_manager.h"
 #include "lib/jxl/test_utils.h"
 #include "lib/jxl/testing.h"
@@ -220,8 +215,7 @@ void TestDirac2D(size_t xsize, size_t ysize, double sigma) {
                          ImageF::Create(memory_manager, xsize, ysize));
   const auto rg = CreateRecursiveGaussian(sigma);
   ASSERT_TRUE(FastGaussian(
-      memory_manager, rg, xsize, ysize,
-      [&](size_t y) { return in.ConstRow(y); },
+      rg, xsize, ysize, [&](size_t y) { return in.ConstRow(y); },
       [&](size_t y) { return temp.Row(y); },
       [&](size_t y) { return out.Row(y); }));
 
@@ -263,16 +257,10 @@ TEST(GaussBlurTest, DISABLED_SlowTestDirac1D) {
                          ImageF::Create(memory_manager, length, 1));
   ZeroFillImage(&inputs);
 
-  JXL_TEST_ASSIGN_OR_DIE(
-      AlignedMemory outputs_mem,
-      AlignedMemory::Create(memory_manager, length * sizeof(float)));
-  float* outputs = outputs_mem.address<float>();
+  HWY_ALIGN_MAX float outputs[length];
 
   // One per center position
-  JXL_TEST_ASSIGN_OR_DIE(
-      AlignedMemory sum_abs_err_mem,
-      AlignedMemory::Create(memory_manager, length * sizeof(double)));
-  double* sum_abs_err = sum_abs_err_mem.address<double>();
+  HWY_ALIGN_MAX double sum_abs_err[length];
   std::fill(sum_abs_err, sum_abs_err + length, 0.0);
 
   for (size_t center = radius; center < length - radius; ++center) {
@@ -341,8 +329,7 @@ void TestRandom(size_t xsize, size_t ysize, float min, float max, double sigma,
                          ImageF::Create(memory_manager, xsize, ysize));
   const auto rg = CreateRecursiveGaussian(sigma);
   ASSERT_TRUE(FastGaussian(
-      memory_manager, rg, in.xsize(), in.ysize(),
-      [&](size_t y) { return in.ConstRow(y); },
+      rg, in.xsize(), in.ysize(), [&](size_t y) { return in.ConstRow(y); },
       [&](size_t y) { return temp.Row(y); },
       [&](size_t y) { return out.Row(y); }));
 
@@ -572,9 +559,9 @@ TEST(GaussBlurTest, TestSign) {
   const size_t xtest = xsize / 2;
   const size_t ytest = ysize / 2;
 
-  for (ptrdiff_t dy = -16; dy <= 16; ++dy) {
+  for (intptr_t dy = -16; dy <= 16; ++dy) {
     float* row = in.Row(ytest + dy);
-    for (ptrdiff_t dx = -16; dx <= 16; ++dx)
+    for (intptr_t dx = -16; dx <= 16; ++dx)
       row[xtest + dx] = center[(dy + 16) * 33 + (dx + 16)];
   }
 
@@ -586,8 +573,7 @@ TEST(GaussBlurTest, TestSign) {
                          ImageF::Create(memory_manager, xsize, ysize));
   const auto rg = CreateRecursiveGaussian(sigma);
   ASSERT_TRUE(FastGaussian(
-      memory_manager, rg, in.xsize(), in.ysize(),
-      [&](size_t y) { return in.ConstRow(y); },
+      rg, in.xsize(), in.ysize(), [&](size_t y) { return in.ConstRow(y); },
       [&](size_t y) { return temp.Row(y); },
       [&](size_t y) { return out_rg.Row(y); }));
 

@@ -34,7 +34,6 @@
 #include "imgRequestProxy.h"
 #include "Orientation.h"
 #include "CounterStyleManager.h"
-#include <cmath>
 #include <cstddef> // offsetof()
 #include <utility>
 #include "X11UndefineNone.h"
@@ -1680,52 +1679,6 @@ struct nsStyleGridTemplate
   }
 };
 
-namespace mozilla {
-
-struct StyleAspectRatio {
-  StyleAspectRatio()
-    : mWidth(0.0f)
-    , mHeight(1.0f)
-    , mAuto(true)
-    , mHasRatio(false)
-  {}
-
-  StyleAspectRatio(float aWidth, float aHeight, bool aAuto)
-    : mWidth(aWidth)
-    , mHeight(aHeight)
-    , mAuto(aAuto)
-    , mHasRatio(true)
-  {}
-
-  bool HasRatio() const { return mHasRatio; }
-
-  bool HasUsableRatio() const {
-    return mHasRatio &&
-           mWidth != 0.0f &&
-           mHeight != 0.0f &&
-           std::isfinite(mWidth) &&
-           std::isfinite(mHeight);
-  }
-
-  bool operator==(const StyleAspectRatio& aOther) const {
-    return mWidth == aOther.mWidth &&
-           mHeight == aOther.mHeight &&
-           mAuto == aOther.mAuto &&
-           mHasRatio == aOther.mHasRatio;
-  }
-
-  bool operator!=(const StyleAspectRatio& aOther) const {
-    return !(*this == aOther);
-  }
-
-  float mWidth;
-  float mHeight;
-  bool mAuto;
-  bool mHasRatio;
-};
-
-} // namespace mozilla
-
 struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStylePosition
 {
   explicit nsStylePosition(nsPresContext* aContext);
@@ -1790,7 +1743,7 @@ struct MOZ_NEEDS_MEMMOVABLE_MEMBERS nsStylePosition
   nsStyleCoord  mGridAutoColumnsMax;    // [reset] coord, percent, enum, calc, flex
   nsStyleCoord  mGridAutoRowsMin;       // [reset] coord, percent, enum, calc, flex
   nsStyleCoord  mGridAutoRowsMax;       // [reset] coord, percent, enum, calc, flex
-  mozilla::StyleAspectRatio mAspectRatio; // [reset]
+  float         mAspectRatio;           // [reset] float
   uint8_t       mGridAutoFlow;          // [reset] enumerated. See nsStyleConsts.h
   mozilla::StyleBoxSizing mBoxSizing;   // [reset] see nsStyleConsts.h
 

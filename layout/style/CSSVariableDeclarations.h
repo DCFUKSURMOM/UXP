@@ -7,13 +7,10 @@
 #ifndef mozilla_CSSVariableDeclarations_h
 #define mozilla_CSSVariableDeclarations_h
 
-#include "nsClassHashtable.h"
 #include "nsDataHashtable.h"
-#include "nsTArray.h"
 
 namespace mozilla {
 class CSSVariableResolver;
-class CSSVariableValues;
 } // namespace mozilla
 struct nsRuleData;
 
@@ -46,8 +43,7 @@ public:
     eInitial,      // 'initial'
     eInherit,      // 'inherit'
     eUnset,        // 'unset'
-    eRevert,       // 'revert'
-    eRevertLayer   // 'revert-layer'
+    eRevert        // 'revert'
   };
 
   /**
@@ -103,15 +99,6 @@ public:
 
   /**
    * Adds or modifies an existing entry in this set of variable declarations
-   * to have the value 'revert-layer'.
-   *
-   * @param aName The variable name (not including any "--" prefix that would
-   *   be part of the custom property name) whose value is to be set.
-   */
-  void PutRevertLayer(const nsAString& aName);
-
-  /**
-   * Adds or modifies an existing entry in this set of variable declarations
    * to have a token stream value.
    *
    * @param aName The variable name (not including any "--" prefix that would
@@ -145,36 +132,15 @@ public:
    */
   void AddVariablesToResolver(CSSVariableResolver* aResolver) const;
 
-  /**
-   * Applies stored lower-priority declarations for custom property values that
-   * resolved to 'revert-layer'.
-   */
-  void ResolveRevertLayerFallbacks(const CSSVariableValues* aInherited,
-                                   CSSVariableValues* aOutput) const;
-
   size_t SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const;
 
 private:
-  struct RevertLayerFallback
-  {
-    nsString mValue;
-    nsString mSource;
-  };
-
-  struct RevertLayerFallbackList
-  {
-    nsTArray<RevertLayerFallback> mItems;
-  };
-
   /**
    * Adds all the variable declarations from aOther into this object.
    */
   void CopyVariablesFrom(const CSSVariableDeclarations& aOther);
 
   nsDataHashtable<nsStringHashKey, nsString> mVariables;
-  nsDataHashtable<nsStringHashKey, nsString> mRevertLayerSources;
-  nsClassHashtable<nsStringHashKey, RevertLayerFallbackList>
-    mRevertLayerFallbacks;
 };
 
 } // namespace mozilla

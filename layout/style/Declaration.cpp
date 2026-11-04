@@ -576,7 +576,6 @@ Declaration::GetPropertyValueInternal(
   const nsCSSValue* tokenStream = nullptr;
   uint32_t totalCount = 0, importantCount = 0,
            initialCount = 0, inheritCount = 0, unsetCount = 0, revertCount = 0,
-           revertLayerCount = 0,
            matchingTokenStreamCount = 0, nonMatchingTokenStreamCount = 0;
   CSSPROPS_FOR_SHORTHAND_SUBPROPERTIES(p, aProperty,
                                        CSSEnabledState::eForAllContent) {
@@ -604,8 +603,6 @@ Declaration::GetPropertyValueInternal(
       ++unsetCount;
     } else if (val->GetUnit() == eCSSUnit_Revert) {
       ++revertCount;
-    } else if (val->GetUnit() == eCSSUnit_RevertLayer) {
-      ++revertLayerCount;
     } else if (val->GetUnit() == eCSSUnit_TokenStream) {
       if (val->GetTokenStreamValue()->mShorthandPropertyID == aProperty) {
         tokenStream = val;
@@ -639,27 +636,13 @@ Declaration::GetPropertyValueInternal(
   }
   if (revertCount == totalCount) {
     // Simplify serialization below by serializing revert up-front.
-    // eCSSUnit_Revert carries the cascade origin, so it cannot use the
-    // nsCSSValue constructor reserved for valueless units.
-    nsCSSValue revert;
-    revert.SetRevertValue(SheetType::Unknown);
-    revert.AppendToString(eCSSProperty_UNKNOWN, aValue,
-                          nsCSSValue::eNormalized);
-    return;
-  }
-  if (revertLayerCount == totalCount) {
-    // Simplify serialization below by serializing revert-layer up-front.
-    nsCSSValue revertLayer;
-    revertLayer.SetRevertLayerValue();
-    revertLayer.AppendToString(eCSSProperty_UNKNOWN, aValue,
-                               nsCSSValue::eNormalized);
+    nsCSSValue(eCSSUnit_Revert).AppendToString(eCSSProperty_UNKNOWN, aValue,
+                                              nsCSSValue::eNormalized);
     return;
   }
   if (initialCount != 0 || inheritCount != 0 || unsetCount != 0 ||
-      revertCount != 0 || revertLayerCount != 0 ||
-      nonMatchingTokenStreamCount != 0) {
-    // Case (2): partially initial, inherit, unset, revert, revert-layer,
-    // or token stream.
+      revertCount != 0 || nonMatchingTokenStreamCount != 0) {
+    // Case (2): partially initial, inherit, unset, revert, or token stream.
     return;
   }
   if (tokenStream) {
@@ -1552,7 +1535,6 @@ Declaration::GetPropertyValueInternal(
           case eCSSUnit_Initial:
           case eCSSUnit_Unset:
           case eCSSUnit_Revert:
-          case eCSSUnit_RevertLayer:
             return true;
           case eCSSUnit_Enumerated:
             // return false if there is a fallback value or <overflow-position>
@@ -1765,10 +1747,6 @@ Declaration::AppendVariableAndValueToString(const nsAString& aName,
 
     case CSSVariableDeclarations::eRevert:
       aResult.AppendLiteral("revert");
-      break;
-
-    case CSSVariableDeclarations::eRevertLayer:
-      aResult.AppendLiteral("revert-layer");
       break;
 
     default:
@@ -2011,10 +1989,6 @@ Declaration::GetVariableValue(const nsAString& aName, nsAString& aValue) const
         aValue.AppendLiteral("revert");
         break;
 
-      case CSSVariableDeclarations::eRevertLayer:
-        aValue.AppendLiteral("revert-layer");
-        break;
-
       default:
         MOZ_ASSERT(false, "unexpected variable value type");
     }
@@ -2083,11 +2057,6 @@ Declaration::AddVariable(const nsAString& aName,
     case CSSVariableDeclarations::eRevert:
       MOZ_ASSERT(aValue.IsEmpty());
       variables->PutRevert(aName);
-      break;
-
-    case CSSVariableDeclarations::eRevertLayer:
-      MOZ_ASSERT(aValue.IsEmpty());
-      variables->PutRevertLayer(aName);
       break;
 
     default:

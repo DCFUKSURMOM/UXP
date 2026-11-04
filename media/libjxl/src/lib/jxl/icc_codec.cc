@@ -7,14 +7,10 @@
 
 #include <jxl/memory_manager.h>
 
-#include <algorithm>
-#include <cstddef>
 #include <cstdint>
 
-#include "lib/jxl/base/common.h"
 #include "lib/jxl/base/status.h"
 #include "lib/jxl/dec_ans.h"
-#include "lib/jxl/dec_bit_reader.h"
 #include "lib/jxl/fields.h"
 #include "lib/jxl/icc_codec_common.h"
 #include "lib/jxl/padded_bytes.h"
@@ -52,41 +48,24 @@ Status Shuffle(JxlMemoryManager* memory_manager, uint8_t* data, size_t size,
   return true;
 }
 
-// Two base-128 varints at up to 10 bytes each.
-constexpr size_t kPreambleSize = 20;
+// TODO(eustas): should be 20, or even 18, once DecodeVarInt is improved;
+//               currently DecodeVarInt does not signal the errors, and marks
+//               11 bytes as used even if only 10 are used (and 9 is enough for
+//               63-bit values).
+constexpr const size_t kPreambleSize = 22;  // enough for reading 2 VarInts
 
-// Decodes a base-128 unsigned varint into *out, advancing *pos by the exact
-// number of bytes consumed. Returns an error if the input is truncated, if
-// the terminator (top-bit-clear byte) is not seen within 10 bytes, or if the
-// 10th byte encodes a value that does not fit in a uint64_t.
-Status DecodeVarInt(const uint8_t* input, size_t inputSize, size_t* pos,
-                    uint64_t* out) {
+uint64_t DecodeVarInt(const uint8_t* input, size_t inputSize, size_t* pos) {
+  size_t i;
   uint64_t ret = 0;
-  // 9 bytes cover bits 0..62; the 10th byte may only contribute bit 63.
-  for (size_t i = 0; i < 9; ++i) {
-    if (*pos >= inputSize) {
-      return JXL_FAILURE("DecodeVarInt: truncated input");
-    }
-    const uint8_t byte = input[(*pos)++];
-    ret |= static_cast<uint64_t>(byte & 0x7F) << (7 * i);
-    if ((byte & 0x80) == 0) {
-      *out = ret;
-      return true;
-    }
+  for (i = 0; *pos + i < inputSize && i < 10; ++i) {
+    ret |= static_cast<uint64_t>(input[*pos + i] & 127)
+           << static_cast<uint64_t>(7 * i);
+    // If the next-byte flag is not set, stop
+    if ((input[*pos + i] & 128) == 0) break;
   }
-  if (*pos >= inputSize) {
-    return JXL_FAILURE("DecodeVarInt: truncated input (10th byte)");
-  }
-  const uint8_t byte = input[(*pos)++];
-  if ((byte & 0x80) != 0) {
-    return JXL_FAILURE("DecodeVarInt: varint exceeds 10 bytes");
-  }
-  if ((byte & 0x7E) != 0) {
-    return JXL_FAILURE("DecodeVarInt: value exceeds 2^64 - 1");
-  }
-  ret |= static_cast<uint64_t>(byte & 0x01) << 63;
-  *out = ret;
-  return true;
+  // TODO(user): Return a decoding error if i == 10.
+  *pos += i + 1;
+  return ret;
 }
 
 }  // namespace
@@ -97,11 +76,10 @@ Status CheckPreamble(const PaddedBytes& data, size_t enc_size) {
   const uint8_t* enc = data.data();
   size_t size = data.size();
   size_t pos = 0;
-  uint64_t osize;
-  JXL_RETURN_IF_ERROR(DecodeVarInt(enc, size, &pos, &osize));
+  uint64_t osize = DecodeVarInt(enc, size, &pos);
   JXL_RETURN_IF_ERROR(CheckIs32Bit(osize));
-  uint64_t csize;
-  JXL_RETURN_IF_ERROR(DecodeVarInt(enc, size, &pos, &csize));
+  if (pos >= size) return JXL_FAILURE("Out of bounds");
+  uint64_t csize = DecodeVarInt(enc, size, &pos);
   JXL_RETURN_IF_ERROR(CheckIs32Bit(csize));
   JXL_RETURN_IF_ERROR(CheckOutOfBounds(pos, csize, size));
   // We expect that UnpredictICC inflates input, not the other way round.
@@ -120,12 +98,17 @@ Status UnpredictICC(const uint8_t* enc, size_t size, PaddedBytes* result) {
   if (!result->empty()) return JXL_FAILURE("result must be empty initially");
   JxlMemoryManager* memory_manager = result->memory_manager();
   size_t pos = 0;
-  uint64_t osize;
-  JXL_RETURN_IF_ERROR(DecodeVarInt(enc, size, &pos, &osize));  // Output size
+  // TODO(lode): technically speaking we need to check that the entire varint
+  // decoding never goes out of bounds, not just the first byte. This requires
+  // a DecodeVarInt function that returns an error code. It is safe to use
+  // DecodeVarInt with out of bounds values, it silently returns, but the
+  // specification requires an error. Idem for all DecodeVarInt below.
+  if (pos >= size) return JXL_FAILURE("Out of bounds");
+  uint64_t osize = DecodeVarInt(enc, size, &pos);  // Output size
   JXL_RETURN_IF_ERROR(CheckIs32Bit(osize));
-  uint64_t csize;
-  JXL_RETURN_IF_ERROR(DecodeVarInt(enc, size, &pos, &csize));  // Commands size
-  // Every command is translated to at least one byte.
+  if (pos >= size) return JXL_FAILURE("Out of bounds");
+  uint64_t csize = DecodeVarInt(enc, size, &pos);  // Commands size
+  // Every command is translated to at least on byte.
   JXL_RETURN_IF_ERROR(CheckIs32Bit(csize));
   size_t cpos = pos;  // pos in commands stream
   JXL_RETURN_IF_ERROR(CheckOutOfBounds(pos, csize, size));
@@ -149,8 +132,7 @@ Status UnpredictICC(const uint8_t* enc, size_t size, PaddedBytes* result) {
   if (cpos >= commands_end) return JXL_FAILURE("Out of bounds");
 
   // Tag list
-  uint64_t numtags;
-  JXL_RETURN_IF_ERROR(DecodeVarInt(enc, commands_end, &cpos, &numtags));
+  uint64_t numtags = DecodeVarInt(enc, size, &cpos);
 
   if (numtags != 0) {
     numtags--;
@@ -192,7 +174,8 @@ Status UnpredictICC(const uint8_t* enc, size_t size, PaddedBytes* result) {
       }
 
       if (command & kFlagBitOffset) {
-        JXL_RETURN_IF_ERROR(DecodeVarInt(enc, commands_end, &cpos, &tagstart));
+        if (cpos >= commands_end) return JXL_FAILURE("Out of bounds");
+        tagstart = DecodeVarInt(enc, size, &cpos);
       } else {
         JXL_RETURN_IF_ERROR(CheckIs32Bit(prevtagstart));
         tagstart = prevtagstart + prevtagsize;
@@ -200,7 +183,8 @@ Status UnpredictICC(const uint8_t* enc, size_t size, PaddedBytes* result) {
       JXL_RETURN_IF_ERROR(CheckIs32Bit(tagstart));
       JXL_RETURN_IF_ERROR(AppendUint32(tagstart, result));
       if (command & kFlagBitSize) {
-        JXL_RETURN_IF_ERROR(DecodeVarInt(enc, commands_end, &cpos, &tagsize));
+        if (cpos >= commands_end) return JXL_FAILURE("Out of bounds");
+        tagsize = DecodeVarInt(enc, size, &cpos);
       }
       JXL_RETURN_IF_ERROR(CheckIs32Bit(tagsize));
       JXL_RETURN_IF_ERROR(AppendUint32(tagsize, result));
@@ -235,15 +219,15 @@ Status UnpredictICC(const uint8_t* enc, size_t size, PaddedBytes* result) {
     if (cpos == commands_end) break;  // Valid end
     uint8_t command = enc[cpos++];
     if (command == kCommandInsert) {
-      uint64_t num;
-      JXL_RETURN_IF_ERROR(DecodeVarInt(enc, commands_end, &cpos, &num));
+      if (cpos >= commands_end) return JXL_FAILURE("Out of bounds");
+      uint64_t num = DecodeVarInt(enc, size, &cpos);
       JXL_RETURN_IF_ERROR(CheckOutOfBounds(pos, num, size));
       for (size_t i = 0; i < num; i++) {
         JXL_RETURN_IF_ERROR(result->push_back(enc[pos++]));
       }
     } else if (command == kCommandShuffle2 || command == kCommandShuffle4) {
-      uint64_t num;
-      JXL_RETURN_IF_ERROR(DecodeVarInt(enc, commands_end, &cpos, &num));
+      if (cpos >= commands_end) return JXL_FAILURE("Out of bounds");
+      uint64_t num = DecodeVarInt(enc, size, &cpos);
       JXL_RETURN_IF_ERROR(CheckOutOfBounds(pos, num, size));
       PaddedBytes shuffled(memory_manager);
       JXL_ASSIGN_OR_RETURN(shuffled,
@@ -272,7 +256,8 @@ Status UnpredictICC(const uint8_t* enc, size_t size, PaddedBytes* result) {
 
       uint64_t stride = width;
       if (flags & 16) {
-        JXL_RETURN_IF_ERROR(DecodeVarInt(enc, commands_end, &cpos, &stride));
+        if (cpos >= commands_end) return JXL_FAILURE("Out of bounds");
+        stride = DecodeVarInt(enc, size, &cpos);
         if (stride < width) {
           return JXL_FAILURE("Invalid stride");
         }
@@ -286,8 +271,8 @@ Status UnpredictICC(const uint8_t* enc, size_t size, PaddedBytes* result) {
         return JXL_FAILURE("Invalid stride");
       }
 
-      uint64_t num;
-      JXL_RETURN_IF_ERROR(DecodeVarInt(enc, commands_end, &cpos, &num));  // in bytes
+      if (cpos >= commands_end) return JXL_FAILURE("Out of bounds");
+      uint64_t num = DecodeVarInt(enc, size, &cpos);  // in bytes
       JXL_RETURN_IF_ERROR(CheckOutOfBounds(pos, num, size));
 
       PaddedBytes shuffled(memory_manager);
@@ -375,23 +360,23 @@ Status ICCReader::Init(BitReader* reader) {
 }
 
 Status ICCReader::Process(BitReader* reader, PaddedBytes* icc) {
-  auto checkpoint = jxl::make_unique<ANSSymbolReader::Checkpoint>();
+  ANSSymbolReader::Checkpoint checkpoint;
   size_t saved_i = 0;
   auto save = [&]() {
-    ans_reader_.Save(checkpoint.get());
+    ans_reader_.Save(&checkpoint);
     bits_to_skip_ = reader->TotalBitsConsumed() - used_bits_base_;
     saved_i = i_;
   };
   save();
-  auto check_and_restore = [&]() -> Status {
+  auto check_and_restore = [&]() {
     Status status = CheckEOI(reader);
     if (!status) {
       // not enough bytes.
-      ans_reader_.Restore(*checkpoint);
+      ans_reader_.Restore(checkpoint);
       i_ = saved_i;
       return status;
     }
-    return true;
+    return Status(true);
   };
   for (; i_ < enc_size_; i_++) {
     if (i_ % ANSSymbolReader::kMaxCheckpointInterval == 0 && i_ > 0) {
@@ -422,7 +407,8 @@ Status ICCReader::Process(BitReader* reader, PaddedBytes* icc) {
 
 Status ICCReader::CheckEOI(BitReader* reader) {
   if (reader->AllReadsWithinBounds()) return true;
-  return JXL_NOT_ENOUGH_BYTES("Not enough bytes for reading ICC profile");
+  return JXL_STATUS(StatusCode::kNotEnoughBytes,
+                    "Not enough bytes for reading ICC profile");
 }
 
 }  // namespace jxl

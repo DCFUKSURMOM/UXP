@@ -11,14 +11,11 @@
 #include "nsContentListDeclarations.h"
 #include "nsNameSpaceManager.h"
 #include "mozilla/dom/NameSpaceConstants.h"
-#include "js/RootingAPI.h"
 
 class nsContentList;
 class nsINode;
 
 namespace mozilla {
-class CSSStyleSheet;
-class ErrorResult;
 class StyleSheet;
 
 namespace dom {
@@ -85,18 +82,6 @@ public:
   }
 
   StyleSheetList& EnsureDOMStyleSheets();
-
-  void GetAdoptedStyleSheets(JSContext* aCx,
-                             JS::MutableHandle<JSObject*> aResult,
-                             mozilla::ErrorResult& aRv) const;
-  void SetAdoptedStyleSheets(JSContext* aCx,
-                             JS::Handle<JSObject*> aSheets,
-                             mozilla::ErrorResult& aRv);
-
-  const nsTArray<RefPtr<mozilla::CSSStyleSheet>>& AdoptedStyleSheets() const
-  {
-    return mAdoptedStyleSheets;
-  }
 
   Element* GetElementById(const nsAString& aElementId);
 
@@ -166,7 +151,6 @@ protected:
   Element* GetRetargetedFocusedElement();
 
   nsTArray<RefPtr<mozilla::StyleSheet>> mStyleSheets;
-  nsTArray<RefPtr<mozilla::CSSStyleSheet>> mAdoptedStyleSheets;
   RefPtr<mozilla::dom::StyleSheetList> mDOMStyleSheets;
 
   /*

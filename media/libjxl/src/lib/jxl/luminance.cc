@@ -5,7 +5,6 @@
 
 #include "lib/jxl/luminance.h"
 
-#include "lib/jxl/base/common.h"
 #include "lib/jxl/image_metadata.h"
 
 namespace jxl {

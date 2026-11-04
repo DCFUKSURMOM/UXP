@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "hwy/contrib/sort/vqsort.h"  // VQSort
+#include "hwy/contrib/sort/vqsort.h"
 
 #undef HWY_TARGET_INCLUDE
 // clang-format off
@@ -23,48 +23,27 @@
 #include "hwy/foreach_target.h"  // IWYU pragma: keep
 
 // After foreach_target
+#include "hwy/contrib/sort/traits128-inl.h"
 #include "hwy/contrib/sort/vqsort-inl.h"
 
 HWY_BEFORE_NAMESPACE();
 namespace hwy {
 namespace HWY_NAMESPACE {
-namespace {
 
-void SortKV128Asc(K64V64* HWY_RESTRICT keys, const size_t num) {
-  // 128-bit keys require 128-bit SIMD.
-#if HWY_TARGET != HWY_SCALAR
-  return VQSortStatic(keys, num, SortAscending());
+void SortKV128Asc(uint64_t* HWY_RESTRICT keys, size_t num,
+                  uint64_t* HWY_RESTRICT buf) {
+#if VQSORT_ENABLED
+  SortTag<uint64_t> d;
+  detail::SharedTraits<detail::Traits128<detail::OrderAscendingKV128>> st;
+  Sort(d, st, keys, num, buf);
 #else
-  (void)keys;
-  (void)num;
+  (void) keys;
+  (void) num;
+  (void) buf;
+  HWY_ASSERT(0);
 #endif
 }
 
-void PartialSortKV128Asc(K64V64* HWY_RESTRICT keys, const size_t num,
-                         const size_t k) {
-  // 128-bit keys require 128-bit SIMD.
-#if HWY_TARGET != HWY_SCALAR
-  return VQPartialSortStatic(keys, num, k, SortAscending());
-#else
-  (void)keys;
-  (void)num;
-  (void)k;
-#endif
-}
-
-void SelectKV128Asc(K64V64* HWY_RESTRICT keys, const size_t num,
-                    const size_t k) {
-  // 128-bit keys require 128-bit SIMD.
-#if HWY_TARGET != HWY_SCALAR
-  return VQSelectStatic(keys, num, k, SortAscending());
-#else
-  (void)keys;
-  (void)num;
-  (void)k;
-#endif
-}
-
-}  // namespace
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 }  // namespace HWY_NAMESPACE
 }  // namespace hwy
@@ -74,27 +53,12 @@ HWY_AFTER_NAMESPACE();
 namespace hwy {
 namespace {
 HWY_EXPORT(SortKV128Asc);
-HWY_EXPORT(PartialSortKV128Asc);
-HWY_EXPORT(SelectKV128Asc);
 }  // namespace
 
-void VQSort(K64V64* HWY_RESTRICT keys, const size_t n, SortAscending) {
-  HWY_DYNAMIC_DISPATCH(SortKV128Asc)(keys, n);
-}
-
-void VQPartialSort(K64V64* HWY_RESTRICT keys, const size_t n, const size_t k,
-                   SortAscending) {
-  HWY_DYNAMIC_DISPATCH(PartialSortKV128Asc)(keys, n, k);
-}
-
-void VQSelect(K64V64* HWY_RESTRICT keys, const size_t n, const size_t k,
-              SortAscending) {
-  HWY_DYNAMIC_DISPATCH(SelectKV128Asc)(keys, n, k);
-}
-
 void Sorter::operator()(K64V64* HWY_RESTRICT keys, size_t n,
-                        SortAscending tag) const {
-  VQSort(keys, n, tag);
+                        SortAscending) const {
+  HWY_DYNAMIC_DISPATCH(SortKV128Asc)
+  (reinterpret_cast<uint64_t*>(keys), n * 2, Get<uint64_t>());
 }
 
 }  // namespace hwy

@@ -255,6 +255,8 @@ __CERT_AddTempCertToPerm(CERTCertificate *cert, char *nickname,
     NSSCertificate *c = STAN_GetNSSCertificate(cert);
     nssCertificateStoreTrace lockTrace = { NULL, NULL, PR_FALSE, PR_FALSE };
     nssCertificateStoreTrace unlockTrace = { NULL, NULL, PR_FALSE, PR_FALSE };
+    SECStatus rv;
+    PRStatus ret;
 
     if (c == NULL) {
         CERT_MapStanError();
@@ -316,19 +318,12 @@ __CERT_AddTempCertToPerm(CERTCertificate *cert, char *nickname,
         return SECFailure;
     }
     nssPKIObject_AddInstance(&c->object, permInstance);
-    // nssTrustDomain_AddCertToCache takes ownership of 'c' and returns an
-    // owned reference to an NSSCertificate that may be a different object from
-    // 'c'. Because 'cert' is backed by 'c', and because it must not go away as
-    // a result of calling this function, increment the refcount on 'c' for the
-    // duration of the call.
-    nssCertificate_AddRef(c);
-    NSSCertificate *cInCache = nssTrustDomain_AddCertToCache(STAN_GetDefaultTrustDomain(), c);
-    if (!cInCache) {
-        CERT_MapStanError();
-        return SECFailure;
-    }
-    c = cInCache;
-    cert = STAN_GetCERTCertificateOrRelease(c);
+    nssTrustDomain_AddCertsToCache(STAN_GetDefaultTrustDomain(), &c, 1);
+    /* reset the CERTCertificate fields */
+    CERT_LockCertTempPerm(cert);
+    cert->nssCertificate = NULL;
+    CERT_UnlockCertTempPerm(cert);
+    cert = STAN_GetCERTCertificateOrRelease(c); /* should return same pointer */
     if (!cert) {
         CERT_MapStanError();
         return SECFailure;
@@ -337,12 +332,15 @@ __CERT_AddTempCertToPerm(CERTCertificate *cert, char *nickname,
     cert->istemp = PR_FALSE;
     cert->isperm = PR_TRUE;
     CERT_UnlockCertTempPerm(cert);
-    SECStatus rv = SECSuccess;
-    if (trust && STAN_ChangeCertTrust(cert, trust) != PR_SUCCESS) {
+    if (!trust) {
+        return SECSuccess;
+    }
+    ret = STAN_ChangeCertTrust(cert, trust);
+    rv = SECSuccess;
+    if (ret != PR_SUCCESS) {
         rv = SECFailure;
         CERT_MapStanError();
     }
-    nssCertificate_Destroy(c);
     return rv;
 }
 

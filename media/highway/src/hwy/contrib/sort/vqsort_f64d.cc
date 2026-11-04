@@ -13,55 +13,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "hwy/contrib/sort/vqsort.h"  // VQSort
+#include "hwy/contrib/sort/vqsort.h"
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "hwy/contrib/sort/vqsort_f64d.cc"
 #include "hwy/foreach_target.h"  // IWYU pragma: keep
 
 // After foreach_target
+#include "hwy/contrib/sort/traits-inl.h"
 #include "hwy/contrib/sort/vqsort-inl.h"
 
 HWY_BEFORE_NAMESPACE();
 namespace hwy {
 namespace HWY_NAMESPACE {
-namespace {
 
-void SortF64Desc(double* HWY_RESTRICT keys, const size_t num) {
+void SortF64Desc(double* HWY_RESTRICT keys, size_t num,
+                 double* HWY_RESTRICT buf) {
 #if HWY_HAVE_FLOAT64
-  return VQSortStatic(keys, num, SortDescending());
+  SortTag<double> d;
+  detail::SharedTraits<detail::TraitsLane<detail::OrderDescending<double>>> st;
+  Sort(d, st, keys, num, buf);
 #else
   (void)keys;
   (void)num;
+  (void)buf;
   HWY_ASSERT(0);
 #endif
 }
 
-void PartialSortF64Desc(double* HWY_RESTRICT keys, const size_t num,
-                        const size_t k) {
-#if HWY_HAVE_FLOAT64
-  return VQPartialSortStatic(keys, num, k, SortDescending());
-#else
-  (void)keys;
-  (void)num;
-  (void)k;
-  HWY_ASSERT(0);
-#endif
-}
-
-void SelectF64Desc(double* HWY_RESTRICT keys, const size_t num,
-                   const size_t k) {
-#if HWY_HAVE_FLOAT64
-  return VQSelectStatic(keys, num, k, SortDescending());
-#else
-  (void)keys;
-  (void)num;
-  (void)k;
-  HWY_ASSERT(0);
-#endif
-}
-
-}  // namespace
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 }  // namespace HWY_NAMESPACE
 }  // namespace hwy
@@ -71,27 +50,11 @@ HWY_AFTER_NAMESPACE();
 namespace hwy {
 namespace {
 HWY_EXPORT(SortF64Desc);
-HWY_EXPORT(PartialSortF64Desc);
-HWY_EXPORT(SelectF64Desc);
 }  // namespace
 
-void VQSort(double* HWY_RESTRICT keys, const size_t n, SortDescending) {
-  HWY_DYNAMIC_DISPATCH(SortF64Desc)(keys, n);
-}
-
-void VQPartialSort(double* HWY_RESTRICT keys, const size_t n, const size_t k,
-                   SortDescending) {
-  HWY_DYNAMIC_DISPATCH(PartialSortF64Desc)(keys, n, k);
-}
-
-void VQSelect(double* HWY_RESTRICT keys, const size_t n, const size_t k,
-              SortDescending) {
-  HWY_DYNAMIC_DISPATCH(SelectF64Desc)(keys, n, k);
-}
-
 void Sorter::operator()(double* HWY_RESTRICT keys, size_t n,
-                        SortDescending tag) const {
-  VQSort(keys, n, tag);
+                        SortDescending) const {
+  HWY_DYNAMIC_DISPATCH(SortF64Desc)(keys, n, Get<double>());
 }
 
 }  // namespace hwy

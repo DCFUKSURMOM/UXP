@@ -320,7 +320,7 @@ ComputeIntrinsicSize(imgIContainer* aImage,
   }
   */
 
-  if (aUseMappedRatio && aFrame.StylePosition()->mAspectRatio.HasRatio()) {
+  if (aUseMappedRatio && aFrame.StylePosition()->mAspectRatio != 0.0f) {
     return IntrinsicSize();
   }
 
@@ -375,10 +375,8 @@ ComputeAspectRatio(imgIContainer* aImage,
       return fromImage;
     }
   }
-  if (aUseMappedRatio &&
-      aFrame.StylePosition()->mAspectRatio.HasUsableRatio()) {
-    const StyleAspectRatio& ratio = aFrame.StylePosition()->mAspectRatio;
-    return AspectRatio::FromSize(ratio.mWidth, ratio.mHeight);
+  if (aUseMappedRatio && aFrame.StylePosition()->mAspectRatio != 0.0f) {
+    return AspectRatio(aFrame.StylePosition()->mAspectRatio);
   }
   if (aFrame.ShouldShowBrokenImageIcon()) {
     return AspectRatio(1.0f);
@@ -893,7 +891,7 @@ nsImageFrame::ComputeSize(nsRenderingContext *aRenderingContext,
   }
 
   return ComputeSizeWithIntrinsicDimensions(aRenderingContext, aWM,
-                                            intrinsicSize, GetAspectRatio(),
+                                            intrinsicSize, mIntrinsicRatio,
                                             aCBSize, aMargin, aBorder, aPadding,
                                             aFlags);
 }

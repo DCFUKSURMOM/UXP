@@ -732,10 +732,10 @@ bool
 HTMLSelectElement::MatchSelectedOptions(Element* aElement,
                                         int32_t /* unused */,
                                         nsIAtom* /* unused */,
-                                        void* aData)
+                                        void* /* unused*/)
 {
   HTMLOptionElement* option = HTMLOptionElement::FromContent(aElement);
-  return option && option->Selected() && option->GetSelect() == static_cast<HTMLSelectElement*>(aData);
+  return option && option->Selected();
 }
 
 nsIHTMLCollection*
@@ -743,7 +743,7 @@ HTMLSelectElement::SelectedOptions()
 {
   if (!mSelectedOptions) {
     mSelectedOptions = new nsContentList(this, MatchSelectedOptions, nullptr,
-                                         this, /* deep */ true);
+                                         nullptr, /* deep */ true);
   }
   return mSelectedOptions;
 }
