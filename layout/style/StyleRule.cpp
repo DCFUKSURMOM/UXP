@@ -24,6 +24,7 @@
 #include "nsNameSpaceManager.h"
 #include "nsXMLNameSpaceMap.h"
 #include "nsCSSParser.h"
+#include "nsCSSRuleUtils.h"
 #include "nsCSSPseudoClasses.h"
 #include "nsCSSAnonBoxes.h"
 #include "nsTArray.h"
@@ -993,7 +994,8 @@ nsCSSSelector::SizeOfIncludingThis(mozilla::MallocSizeOf aMallocSizeOf) const
 nsCSSSelectorList::nsCSSSelectorList(void)
   : mSelectors(nullptr),
     mWeight(0),
-    mNext(nullptr)
+    mNext(nullptr),
+    mIsRelativeSelector(false)
 {
   MOZ_COUNT_CTOR(nsCSSSelectorList);
 }
@@ -1008,6 +1010,7 @@ nsCSSSelectorList::~nsCSSSelectorList()
 nsCSSSelector*
 nsCSSSelectorList::AddSelector(char16_t aOperator)
 {
+  mHasSelectorData = nullptr;
   nsCSSSelector* newSel = new nsCSSSelector();
 
   if (mSelectors) {
@@ -1025,6 +1028,7 @@ nsCSSSelectorList::AddSelector(char16_t aOperator)
 void
 nsCSSSelectorList::RemoveRightmostSelector()
 {
+  mHasSelectorData = nullptr;
   nsCSSSelector* current = mSelectors;
   mSelectors = mSelectors->mNext;
   MOZ_ASSERT(mSelectors,
@@ -1047,7 +1051,33 @@ nsCSSSelectorList::ToString(nsAString& aResult, CSSStyleSheet* aSheet)
     return;
   }
   for (;;) {
-    p->mSelectors->ToString(aResult, aSheet, true);
+    if (p->mIsRelativeSelector) {
+      // :has() arguments are represented internally as selectors with an
+      // implicit leftmost anchor.  Serialize the authored relative selector,
+      // including an explicit leading combinator when there is one.
+      const nsCSSSelector* leftmost = p->mSelectors;
+      while (leftmost->mNext && leftmost->mNext->mNext) {
+        leftmost = leftmost->mNext;
+      }
+      MOZ_ASSERT(leftmost->mNext,
+                 "relative selector should have an implicit anchor");
+      if (leftmost->mNext->mOperator != char16_t(' ')) {
+        aResult.Append(leftmost->mNext->mOperator);
+        aResult.Append(char16_t(' '));
+      }
+
+      nsAutoPtr<nsCSSSelector> selectors(p->mSelectors->Clone());
+      nsCSSSelector* beforeAnchor = selectors;
+      while (beforeAnchor->mNext && beforeAnchor->mNext->mNext) {
+        beforeAnchor = beforeAnchor->mNext;
+      }
+      MOZ_ASSERT(beforeAnchor->mNext);
+      delete beforeAnchor->mNext;
+      beforeAnchor->mNext = nullptr;
+      selectors->ToString(aResult, aSheet, true);
+    } else {
+      p->mSelectors->ToString(aResult, aSheet, true);
+    }
     p = p->mNext;
     if (!p)
       break;
@@ -1060,6 +1090,7 @@ nsCSSSelectorList::Clone(bool aDeep) const
 {
   nsCSSSelectorList *result = new nsCSSSelectorList();
   result->mWeight = mWeight;
+  result->mIsRelativeSelector = mIsRelativeSelector;
   NS_IF_CLONE(mSelectors);
 
   if (aDeep) {

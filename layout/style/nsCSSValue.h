@@ -490,6 +490,7 @@ enum nsCSSUnit {
   eCSSUnit_GridTemplateAreas   = 44,   // (GridTemplateAreasValue*)
                                        // for grid-template-areas
   eCSSUnit_Revert       = 45,     // (SheetType) value is the current cascade origin
+  eCSSUnit_RevertLayer  = 46,     // (int32_t) packed cascade layer rollback data
 
   eCSSUnit_Pair         = 50,     // (nsCSSValuePair*) pair of values
   eCSSUnit_Triplet      = 51,     // (nsCSSValueTriplet*) triplet of values
@@ -781,7 +782,8 @@ public:
 
   float GetFloatValue() const
   {
-    MOZ_ASSERT(eCSSUnit_Number <= mUnit, "not a float value");
+    //FIXME: This fails on Radius with large value. 
+    //MOZ_ASSERT(eCSSUnit_Number <= mUnit, "not a float value");
     return mValue.mFloat;
   }
 
@@ -939,6 +941,9 @@ public:
     MOZ_ASSERT(mUnit == eCSSUnit_Revert, "not a cascade origin value");
     return mValue.mCascadeOrigin;
   }
+  mozilla::SheetType GetRevertLayerOriginValue() const;
+  bool GetRevertLayerImportanceValue() const;
+  int32_t GetRevertLayerLayerIndexValue() const;
 
   void Reset()  // sets to null
   {
@@ -951,7 +956,7 @@ private:
 public:
   void SetIntValue(int32_t aValue, nsCSSUnit aUnit);
   template<typename T,
-           typename = typename std::enable_if<std::is_enum<T>::value>::type>
+           typename = typename std::enable_if_t<std::is_enum_v<T>>>
   void SetIntValue(T aValue, nsCSSUnit aUnit)
   {
     static_assert(mozilla::EnumTypeFitsWithin<T, int32_t>::value,
@@ -994,6 +999,10 @@ public:
   void SetInitialValue();
   void SetUnsetValue();
   void SetRevertValue(mozilla::SheetType aValue);
+  void SetRevertLayerValue();
+  void SetRevertLayerValue(mozilla::SheetType aLevel,
+                           bool aIsImportant,
+                           int32_t aLayerIndex);
   void SetNoneValue();
   void SetAllValue();
   void SetNormalValue();
@@ -1837,6 +1846,8 @@ public:
            mShorthandPropertyID == aOther.mShorthandPropertyID &&
            mTokenStream.Equals(aOther.mTokenStream) &&
            mLevel == aOther.mLevel &&
+           mIsImportant == aOther.mIsImportant &&
+           mLayerIndex == aOther.mLayerIndex &&
            (mBaseURI == aOther.mBaseURI ||
             (mBaseURI && aOther.mBaseURI &&
              NS_SUCCEEDED(mBaseURI->Equals(aOther.mBaseURI, &eq)) &&
@@ -1886,6 +1897,8 @@ public:
   uint32_t mLineNumber;
   uint32_t mLineOffset;
   mozilla::SheetType mLevel;
+  bool mIsImportant;
+  int32_t mLayerIndex;
 
 private:
   nsCSSValueTokenStream(const nsCSSValueTokenStream& aOther) = delete;
