@@ -1929,9 +1929,19 @@ nsChildView::RectContainingTitlebarControls()
   }
 
   // Add the rects of the titlebar controls.
+  #if defined(__clang__)
   for (id view in [window titlebarControls]) {
     rect = NSUnionRect(rect, [mView convertRect:[view bounds] fromView:view]);
   }
+  #else
+  NSArray *controls = [window titlebarControls];
+  NSUInteger count = [controls count];
+
+  for (NSUInteger i = 0; i < count; i++) {
+    id view = [controls objectAtIndex:i];
+    rect = NSUnionRect(rect, [mView convertRect:[view bounds] fromView:view]);
+  }
+#endif
   return CocoaPointsToDevPixels(rect);
 #else
   // Actually, stuff all that. We've gotta get on with these.
@@ -3727,7 +3737,7 @@ NSEvent* gLastDragMouseDownEvent = nil;
 
   NSSize viewSize = [self bounds].size;
   gfx::IntSize backingSize = gfx::IntSize::Truncate(viewSize.width * scale, viewSize.height * scale);
-#if defined(MAC_OS_X_VERSION_10_7) && (MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_7)
+#ifdef USE_SKIA
   LayoutDeviceIntRegion region = [self nativeDirtyRegionWithBoundingRect:aRect];
 
   bool painted = mGeckoChild->PaintWindowInContext(cgContext, region, backingSize);
