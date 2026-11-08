@@ -6,6 +6,8 @@
 #ifndef TOOLS_BENCHMARK_BENCHMARK_CODEC_PNG_H_
 #define TOOLS_BENCHMARK_BENCHMARK_CODEC_PNG_H_
 
+#include <string>
+
 #include "lib/jxl/base/status.h"
 #include "tools/benchmark/benchmark_args.h"
 #include "tools/benchmark/benchmark_codec.h"

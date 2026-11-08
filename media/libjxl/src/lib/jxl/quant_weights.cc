@@ -7,20 +7,14 @@
 #include <jxl/memory_manager.h>
 
 #include <cmath>
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
-#include <vector>
 
-#include "lib/jxl/ac_strategy.h"
 #include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/status.h"
-#include "lib/jxl/coeff_order_fwd.h"
 #include "lib/jxl/dct_scales.h"
-#include "lib/jxl/dec_bit_reader.h"
 #include "lib/jxl/dec_modular.h"
 #include "lib/jxl/fields.h"
-#include "lib/jxl/frame_dimensions.h"
 #include "lib/jxl/memory_manager_internal.h"
 
 #undef HWY_TARGET_INCLUDE
@@ -1192,9 +1186,7 @@ DequantMatrices::DequantMatrices() {
   size_t pos = 0;
   size_t offsets[kNumQuantTables * 3];
   for (size_t i = 0; i < static_cast<size_t>(kNumQuantTables); i++) {
-    size_t num_blocks =
-        static_cast<size_t>(required_size_x[i]) * required_size_y[i];
-    size_t num = num_blocks * kDCTBlockSize;
+    size_t num = required_size_x[i] * required_size_y[i] * kDCTBlockSize;
     for (size_t c = 0; c < 3; c++) {
       offsets[3 * i + c] = pos + c * num;
     }
@@ -1224,9 +1216,7 @@ Status DequantMatrices::EnsureComputed(JxlMemoryManager* memory_manager,
   size_t offsets[kNumQuantTables * 3 + 1];
   size_t pos = 0;
   for (size_t i = 0; i < kNumQuantTables; i++) {
-    size_t num_blocks =
-        static_cast<size_t>(required_size_x[i]) * required_size_y[i];
-    size_t num = num_blocks * kDCTBlockSize;
+    size_t num = required_size_x[i] * required_size_y[i] * kDCTBlockSize;
     for (size_t c = 0; c < 3; c++) {
       offsets[3 * i + c] = pos + c * num;
     }
@@ -1251,18 +1241,18 @@ Status DequantMatrices::EnsureComputed(JxlMemoryManager* memory_manager,
   for (size_t table = 0; table < kNumQuantTables; table++) {
     if ((1 << table) & computed_kind_mask) continue;
     if ((1 << table) & ~kind_mask) continue;
-    size_t offset = offsets[table * 3];
+    size_t pos = offsets[table * 3];
     float* mutable_table = table_storage_.address<float>();
     if (encodings_[table].mode == QuantEncoding::kQuantModeLibrary) {
       JXL_RETURN_IF_ERROR(HWY_DYNAMIC_DISPATCH(ComputeQuantTable)(
           library[table], mutable_table, mutable_table + kTotalTableSize, table,
-          QuantTable(table), &offset));
+          QuantTable(table), &pos));
     } else {
       JXL_RETURN_IF_ERROR(HWY_DYNAMIC_DISPATCH(ComputeQuantTable)(
           encodings_[table], mutable_table, mutable_table + kTotalTableSize,
-          table, QuantTable(table), &offset));
+          table, QuantTable(table), &pos));
     }
-    JXL_ENSURE(offset == offsets[table * 3 + 3]);
+    JXL_ENSURE(pos == offsets[table * 3 + 3]);
   }
   computed_mask_ |= acs_mask;
 

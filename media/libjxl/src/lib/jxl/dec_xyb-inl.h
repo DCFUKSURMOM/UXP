@@ -14,9 +14,7 @@
 
 #include <hwy/highway.h>
 
-#include "lib/jxl/common.h"
 #include "lib/jxl/dec_xyb.h"
-
 HWY_BEFORE_NAMESPACE();
 namespace jxl {
 namespace HWY_NAMESPACE {
@@ -85,7 +83,6 @@ HWY_INLINE HWY_MAYBE_UNUSED void XybToRgb(D d, const V opsin_x, const V opsin_y,
   *linear_b = MulAdd(LoadDup128(d, &inverse_matrix[8 * 4]), mixed_b, *linear_b);
 }
 
-#if !JXL_HIGH_PRECISION
 inline HWY_MAYBE_UNUSED bool HasFastXYBTosRGB8() {
 #if HWY_TARGET == HWY_NEON
   return true;
@@ -332,15 +329,14 @@ inline HWY_MAYBE_UNUSED Status FastXYBTosRGB8(const float* input[4],
     }
   }
   return true;
-#else   // HWY_TARGET == HWY_NEON
+#else
   (void)input;
   (void)output;
   (void)is_rgba;
   (void)xsize;
   return JXL_UNREACHABLE("unsupported platform");
-#endif  // HWY_TARGET == HWY_NEON
+#endif
 }
-#endif  // !JXL_HIGH_PRECISION
 
 }  // namespace
 // NOLINTNEXTLINE(google-readability-namespace-comments)

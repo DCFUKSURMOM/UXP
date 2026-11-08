@@ -15,17 +15,26 @@
 
 #include "hwy/nanobenchmark.h"
 
-#include <stddef.h>
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS  // before inttypes.h
+#endif
+#include <inttypes.h>
+#include <stdint.h>
 #include <stdio.h>
 
-#include "hwy/tests/hwy_gtest.h"
+#include <random>
+
 #include "hwy/tests/test_util-inl.h"
 
 namespace hwy {
 namespace {
 
-// DefaultBenchmarkParams() handles timeout avoidance in debug builds
-
+// Governs duration of test; avoid timeout in debug builds.
+#if HWY_IS_DEBUG_BUILD
+constexpr size_t kMaxEvals = 3;
+#else
+constexpr size_t kMaxEvals = 4;
+#endif
 
 FuncOutput Div(const void*, FuncInput in) {
   // Here we're measuring the throughput because benchmark invocations are
@@ -37,16 +46,17 @@ template <size_t N>
 void MeasureDiv(const FuncInput (&inputs)[N]) {
   printf("Measuring integer division (output on final two lines)\n");
   Result results[N];
-  Params params = DefaultBenchmarkParams();
+  Params params;
+  params.max_evals = kMaxEvals;
   const size_t num_results = Measure(&Div, nullptr, inputs, N, results, params);
   for (size_t i = 0; i < num_results; ++i) {
-    printf("%5d: %6.2f ticks; MAD=%4.2f%%\n",
-           static_cast<int>(results[i].input), results[i].ticks,
+    printf("%5" PRIu64 ": %6.2f ticks; MAD=%4.2f%%\n",
+           static_cast<uint64_t>(results[i].input), results[i].ticks,
            results[i].variability * 100.0);
   }
 }
 
-RandomState rng;
+std::mt19937 rng;
 
 // A function whose runtime depends on rng.
 FuncOutput Random(const void* /*arg*/, FuncInput in) {
@@ -62,15 +72,16 @@ FuncOutput Random(const void* /*arg*/, FuncInput in) {
 template <size_t N>
 void MeasureRandom(const FuncInput (&inputs)[N]) {
   Result results[N];
-  Params p = DefaultBenchmarkParams();
+  Params p;
+  p.max_evals = kMaxEvals;
   p.verbose = false;
   const size_t num_results = Measure(&Random, nullptr, inputs, N, results, p);
   for (size_t i = 0; i < num_results; ++i) {
-    HWY_ASSERT(results[i].variability > 1E-3);
+    NANOBENCHMARK_CHECK(results[i].variability > 1E-3);
   }
 }
 
-TEST(NanobenchmarkTest, RunTest) {
+TEST(NanobenchmarkTest, RunAll) {
   const int unpredictable = Unpredictable1();  // == 1, unknown to compiler.
   static const FuncInput inputs[] = {static_cast<FuncInput>(unpredictable) + 2,
                                      static_cast<FuncInput>(unpredictable + 9)};
@@ -81,5 +92,3 @@ TEST(NanobenchmarkTest, RunTest) {
 
 }  // namespace
 }  // namespace hwy
-
-HWY_TEST_MAIN();

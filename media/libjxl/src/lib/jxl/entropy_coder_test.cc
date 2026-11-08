@@ -5,9 +5,7 @@
 
 // TODO(deymo): Move these tests to dec_ans.h and common.h
 
-#include <cstddef>
-#include <cstdint>
-#include <vector>
+#include <stdint.h>
 
 #include "lib/jxl/base/random.h"
 #include "lib/jxl/dec_ans.h"
@@ -28,7 +26,7 @@ TEST(EntropyCoderTest, PackUnpack) {
 
 struct MockBitReader {
   uint32_t nbits, bits;
-  void Consume(uint32_t n) {}
+  void Consume(uint32_t nbits) {}
   uint32_t PeekBits(uint32_t n) const {
     EXPECT_EQ(n, nbits);
     return bits;

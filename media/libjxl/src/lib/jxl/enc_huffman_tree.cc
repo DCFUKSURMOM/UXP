@@ -5,13 +5,27 @@
 
 #include "lib/jxl/enc_huffman_tree.h"
 
+// Suppress any -Wdeprecated-declarations warning that might be emitted by
+// GCC or Clang by std::stable_sort in C++17 or later mode
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#elif defined(__GNUC__)
+#pragma GCC push_options
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
 #include <algorithm>
-#include <cstddef>
-#include <cstdint>
+
+#ifdef __clang__
+#pragma clang diagnostic pop
+#elif defined(__GNUC__)
+#pragma GCC pop_options
+#endif
+
 #include <limits>
 #include <vector>
 
-#include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/status.h"
 
 namespace jxl {
@@ -27,12 +41,9 @@ void SetDepth(const HuffmanTree& p, HuffmanTree* pool, uint8_t* depth,
   }
 }
 
-// Compare the root nodes, least popular first; indices are in decreasing order
-// before sorting is applied.
+// Sort the root nodes, least popular first.
 static JXL_INLINE bool Compare(const HuffmanTree& v0, const HuffmanTree& v1) {
-  return v0.total_count != v1.total_count
-             ? v0.total_count < v1.total_count
-             : v0.index_right_or_value > v1.index_right_or_value;
+  return v0.total_count < v1.total_count;
 }
 
 // This function will create a Huffman tree.
@@ -75,7 +86,7 @@ void CreateHuffmanTree(const uint32_t* data, const size_t length,
       break;
     }
 
-    std::sort(tree.begin(), tree.end(), Compare);
+    std::stable_sort(tree.begin(), tree.end(), Compare);
 
     // The nodes are:
     // [0, n): the sorted leaf nodes that we start with.

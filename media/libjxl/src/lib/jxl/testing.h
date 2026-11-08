@@ -8,9 +8,9 @@
 
 // GTest specific macros / wrappers.
 
-#include "gtest/gtest.h"  // IWYU pragma: export
+#include "gtest/gtest.h"
 // JPEGXL_ENABLE_BOXES, JPEGXL_ENABLE_TRANSCODE_JPEG
-#include "lib/jxl/common.h"  // IWYU pragma: keep
+#include "lib/jxl/common.h"
 
 #ifdef JXL_DISABLE_SLOW_TESTS
 #define JXL_SLOW_TEST(T, C) TEST(T, DISABLED_##C)
@@ -37,6 +37,14 @@
 #else
 #define JXL_TSAN_SLOW_TEST(T, C) TEST(T, C)
 #endif  // THREAD_SANITIZER
+
+#if defined(__x86_64__)
+#define JXL_X86_64_TEST(T, C) TEST(T, C)
+#define JXL_X86_64_TEST_P(T, C) TEST_P(T, C)
+#else
+#define JXL_X86_64_TEST(T, C) TEST(T, DISABLED_##C)
+#define JXL_X86_64_TEST_P(T, C) TEST_P(T, C)
+#endif  // defined(__x86_64__)
 
 // googletest before 1.10 didn't define INSTANTIATE_TEST_SUITE_P() but instead
 // used INSTANTIATE_TEST_CASE_P which is now deprecated.
@@ -81,6 +89,6 @@
     ASSERT_TRUE(F) << _.str(); \
   }
 
-#define QUIT(M) FAIL() << (M);
+#define QUIT(M) FAIL() << M;
 
 #endif  // LIB_JXL_TESTING_H_

@@ -9,6 +9,7 @@
 // Chooses reference patches, and avoids encoding them once per occurrence.
 
 #include <jxl/memory_manager.h>
+#include <sys/types.h>
 
 #include <array>
 #include <cstddef>
@@ -145,8 +146,8 @@ class PatchDictionary {
 
   // Interval tree on the y coordinates of the patches.
   struct PatchTreeNode {
-    ptrdiff_t left_child;
-    ptrdiff_t right_child;
+    ssize_t left_child;
+    ssize_t right_child;
     size_t y_center;
     // Range of patches in sorted_patches_y0_ and sorted_patches_y1_ that
     // contain the row y_center.

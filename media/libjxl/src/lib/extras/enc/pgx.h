@@ -8,7 +8,8 @@
 
 // Encodes PGX pixels in memory.
 
-#include <memory>
+#include <stddef.h>
+#include <stdint.h>
 
 #include "lib/extras/enc/encode.h"
 

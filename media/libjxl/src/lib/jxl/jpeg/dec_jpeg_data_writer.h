@@ -8,11 +8,12 @@
 #ifndef LIB_JXL_JPEG_DEC_JPEG_DATA_WRITER_H_
 #define LIB_JXL_JPEG_DEC_JPEG_DATA_WRITER_H_
 
-#include <cstddef>
-#include <cstdint>
+#include <stddef.h>
+#include <stdint.h>
+
 #include <functional>
 
-#include "lib/jxl/base/status.h"
+#include "lib/jxl/jpeg/dec_jpeg_serialization_state.h"
 #include "lib/jxl/jpeg/jpeg_data.h"
 
 namespace jxl {

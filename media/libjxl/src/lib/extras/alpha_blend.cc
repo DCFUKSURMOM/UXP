@@ -5,10 +5,6 @@
 
 #include "lib/extras/alpha_blend.h"
 
-#include <jxl/types.h>
-
-#include <cstddef>
-
 #include "lib/extras/packed_image.h"
 #include "lib/jxl/base/status.h"
 
@@ -24,14 +20,13 @@ Status AlphaBlend(PackedFrame* frame, const float background[3]) {
   if (format.num_channels != 2 && format.num_channels != 4) {
     return true;
   }
-  const bool is_gray_alpha = (format.num_channels == 2);
   --format.num_channels;
   JXL_ASSIGN_OR_RETURN(PackedImage blended,
                        PackedImage::Create(im.xsize, im.ysize, format));
   // TODO(szabadka) SIMDify this and make it work for float16.
   for (size_t y = 0; y < im.ysize; ++y) {
     for (size_t x = 0; x < im.xsize; ++x) {
-      if (is_gray_alpha) {
+      if (format.num_channels == 2) {
         float g = im.GetPixelValue(y, x, 0);
         float a = im.GetPixelValue(y, x, 1);
         float out = g * a + background[0] * (1 - a);
@@ -50,7 +45,7 @@ Status AlphaBlend(PackedFrame* frame, const float background[3]) {
       }
     }
   }
-  JXL_ASSIGN_OR_RETURN(frame->color, blended.Copy());
+  frame->color = blended.Copy();
   return true;
 }
 

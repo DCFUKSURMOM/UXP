@@ -5,8 +5,6 @@
 
 #include "lib/jxl/image_ops.h"
 
-#include <jxl/memory_manager.h>
-
 #include <cstddef>
 #include <cstring>
 

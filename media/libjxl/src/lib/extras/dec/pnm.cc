@@ -5,26 +5,17 @@
 
 #include "lib/extras/dec/pnm.h"
 
-#include <jxl/codestream_header.h>
 #include <jxl/encode.h>
-#include <jxl/types.h>
 
-#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
-#include <utility>
-#include <vector>
 
-#include "lib/extras/dec/color_hints.h"
-#include "lib/extras/mmap.h"
-#include "lib/extras/packed_image.h"
 #include "lib/extras/size_constraints.h"
 #include "lib/jxl/base/bits.h"
 #include "lib/jxl/base/c_callback_support.h"
-#include "lib/jxl/base/common.h"
 #include "lib/jxl/base/span.h"
 #include "lib/jxl/base/status.h"
 
@@ -45,15 +36,6 @@ class Parser {
     pos_ += 2;
 
     switch (type) {
-      case '1':
-        return JXL_FAILURE("ascii pbm not supported");
-
-      case '2':
-        return JXL_FAILURE("ascii pgm not supported");
-
-      case '3':
-        return JXL_FAILURE("ascii ppm not supported");
-
       case '4':
         return JXL_FAILURE("pbm not supported");
 
@@ -88,11 +70,8 @@ class Parser {
 
     *number = 0;
     while (pos_ < end_ && *pos_ >= '0' && *pos_ <= '9') {
-      const size_t digit = *pos_ - '0';
-      if (!SafeMul(*number, static_cast<size_t>(10), *number) ||
-          !SafeAdd(*number, digit, *number)) {
-        return JXL_FAILURE("PNM: unsigned number too large");
-      }
+      *number *= 10;
+      *number += *pos_ - '0';
       ++pos_;
     }
 
@@ -391,8 +370,7 @@ struct PNMChunkedInputFrame {
   const ChunkedPNMDecoder* dec;
 };
 
-StatusOr<ChunkedPNMDecoder> ChunkedPNMDecoder::Init(
-    const char* path, const SizeConstraints* constraints) {
+StatusOr<ChunkedPNMDecoder> ChunkedPNMDecoder::Init(const char* path) {
   ChunkedPNMDecoder dec;
   JXL_ASSIGN_OR_RETURN(dec.pnm_, MemoryMappedFile::Init(path));
   size_t size = dec.pnm_.size();
@@ -413,23 +391,13 @@ StatusOr<ChunkedPNMDecoder> ChunkedPNMDecoder::Init(
   if (header.has_alpha || !header.ec_types.empty() || header.floating_point) {
     return JXL_FAILURE("Only PGM and PPM inputs are supported");
   }
-  JXL_RETURN_IF_ERROR(
-      VerifyDimensions(constraints, header.xsize, header.ysize));
 
   const size_t bytes_per_channel =
       DivCeil(dec.header_.bits_per_sample, jxl::kBitsPerByte);
   const size_t num_channels = dec.header_.is_gray ? 1 : 3;
   const size_t bytes_per_pixel = num_channels * bytes_per_channel;
-  size_t row_size;
-  if (!SafeMul(dec.header_.xsize, bytes_per_pixel, row_size)) {
-    return JXL_FAILURE("PNM image dimensions are too large");
-  }
-  size_t required_size;
-  if (!SafeMul(header.ysize, row_size, required_size) ||
-      !SafeAdd(required_size, dec.data_start_, required_size)) {
-    return JXL_FAILURE("PNM image dimensions are too large");
-  }
-  if (size < required_size) {
+  size_t row_size = dec.header_.xsize * bytes_per_pixel;
+  if (size < header.ysize * row_size + dec.data_start_) {
     return JXL_FAILURE("PNM file too small");
   }
   return dec;
@@ -529,33 +497,13 @@ Status DecodeImagePNM(const Span<const uint8_t> bytes,
     }
   }
 
-  // No align - pixels are tightly packed.
-  constexpr size_t kAlign = 0;
-  size_t twidth = PackedImage::BitsPerChannel(data_type) / 8;
   const JxlPixelFormat format{
       /*num_channels=*/num_interleaved_channels,
       /*data_type=*/data_type,
       /*endianness=*/header.big_endian ? JXL_BIG_ENDIAN : JXL_LITTLE_ENDIAN,
-      kAlign,
+      /*align=*/0,
   };
-  // EC format is same as color, but 1-channel.
-  JxlPixelFormat ec_format = format;
-  ec_format.num_channels = 1;
-  // Compute required pixel-data size with overflow checks. Without these,
-  // a crafted header (large xsize/ysize) wraps the multiplication and lets
-  // the size check below pass while the actual memcpy below reads OOB.
-  size_t total_channels = num_interleaved_channels + header.ec_types.size();
-  size_t required_pnm_size;
-  if (!SafeMul(header.xsize, total_channels, required_pnm_size) ||
-      !SafeMul(required_pnm_size, twidth, required_pnm_size) ||
-      !SafeMul(required_pnm_size, header.ysize, required_pnm_size)) {
-    return JXL_FAILURE("PNM image dimensions are too large");
-  }
-  size_t pnm_remaining_size = bytes.data() + bytes.size() - pos;
-  if (pnm_remaining_size < required_pnm_size) {
-    return JXL_FAILURE("PNM file too small");
-  }
-
+  const JxlPixelFormat ec_format{1, format.data_type, format.endianness, 0};
   ppf->frames.clear();
   {
     JXL_ASSIGN_OR_RETURN(
@@ -564,47 +512,42 @@ Status DecodeImagePNM(const Span<const uint8_t> bytes,
     ppf->frames.emplace_back(std::move(frame));
   }
   auto* frame = &ppf->frames.back();
-  uint8_t* out = reinterpret_cast<uint8_t*>(frame->color.pixels());
-  std::vector<uint8_t*> ec_out;
   for (size_t i = 0; i < header.ec_types.size(); ++i) {
     JXL_ASSIGN_OR_RETURN(
         PackedImage ec,
         PackedImage::Create(header.xsize, header.ysize, ec_format));
     frame->extra_channels.emplace_back(std::move(ec));
-    ec_out.emplace_back(
-        reinterpret_cast<uint8_t*>(frame->extra_channels.back().pixels()));
-    JXL_DASSERT(frame->extra_channels.back().stride == header.xsize * twidth);
   }
-  JXL_DASSERT(frame->color.stride ==
-              header.xsize * num_interleaved_channels * twidth);
+  size_t pnm_remaining_size = bytes.data() + bytes.size() - pos;
+  if (pnm_remaining_size < frame->color.pixels_size) {
+    return JXL_FAILURE("PNM file too small");
+  }
+
+  uint8_t* out = reinterpret_cast<uint8_t*>(frame->color.pixels());
+  std::vector<uint8_t*> ec_out(header.ec_types.size());
+  for (size_t i = 0; i < ec_out.size(); ++i) {
+    ec_out[i] = reinterpret_cast<uint8_t*>(frame->extra_channels[i].pixels());
+  }
   if (ec_out.empty()) {
-    const bool flipped_y = (header.bits_per_sample == 32);  // PFMs are flipped
-    if (!flipped_y) {
-    // When there are no EC and input is not flipped we can copy the whole
-    // image at once.
-      memcpy(out, pos, header.ysize * frame->color.stride);
-    } else {
-      // Otherwise copy row-by-row.
-      for (size_t y = 0; y < header.ysize; ++y) {
-        size_t y_out = header.ysize - 1 - y;
-        const uint8_t* row_in = pos + y * frame->color.stride;
-        uint8_t* row_out = out + y_out * frame->color.stride;
-        memcpy(row_out, row_in, frame->color.stride);
-      }
+    const bool flipped_y = header.bits_per_sample == 32;  // PFMs are flipped
+    for (size_t y = 0; y < header.ysize; ++y) {
+      size_t y_in = flipped_y ? header.ysize - 1 - y : y;
+      const uint8_t* row_in = &pos[y_in * frame->color.stride];
+      uint8_t* row_out = &out[y * frame->color.stride];
+      memcpy(row_out, row_in, frame->color.stride);
     }
   } else {
-    // In case there are EC, we have to deinterleave data pixel-wise.
     JXL_RETURN_IF_ERROR(PackedImage::ValidateDataType(data_type));
-    size_t color_stride = twidth * num_interleaved_channels;
+    size_t pwidth = PackedImage::BitsPerChannel(data_type) / 8;
     for (size_t y = 0; y < header.ysize; ++y) {
       for (size_t x = 0; x < header.xsize; ++x) {
         memcpy(out, pos, frame->color.pixel_stride());
-        out += color_stride;
-        pos += color_stride;
+        out += frame->color.pixel_stride();
+        pos += frame->color.pixel_stride();
         for (auto& p : ec_out) {
-          memcpy(p, pos, twidth);
-          pos += twidth;
-          p += twidth;
+          memcpy(p, pos, pwidth);
+          pos += pwidth;
+          p += pwidth;
         }
       }
     }

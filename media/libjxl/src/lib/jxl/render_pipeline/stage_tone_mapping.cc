@@ -5,17 +5,7 @@
 
 #include "lib/jxl/render_pipeline/stage_tone_mapping.h"
 
-#include <cstddef>
-#include <memory>
-#include <utility>
-
-#include "lib/jxl/base/common.h"
-#include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/sanitizers.h"
-#include "lib/jxl/base/status.h"
-#include "lib/jxl/cms/tone_mapping.h"
-#include "lib/jxl/dec_xyb.h"
-#include "lib/jxl/render_pipeline/render_pipeline_stage.h"
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "lib/jxl/render_pipeline/stage_tone_mapping.cc"
@@ -23,6 +13,7 @@
 #include <hwy/highway.h>
 
 #include "lib/jxl/cms/tone_mapping-inl.h"
+#include "lib/jxl/dec_xyb-inl.h"
 
 HWY_BEFORE_NAMESPACE();
 namespace jxl {
@@ -43,10 +34,11 @@ class ToneMappingStage : public RenderPipelineStage {
     if (orig_tf.IsPQ() && output_encoding_info_.desired_intensity_target <
                               output_encoding_info_.orig_intensity_target) {
       tone_mapper_ = jxl::make_unique<ToneMapper>(
-          /*source_range=*/Range{0.0f,
-                                 output_encoding_info_.orig_intensity_target},
+          /*source_range=*/std::pair<float, float>(
+              0.0f, output_encoding_info_.orig_intensity_target),
           /*target_range=*/
-          Range{0.0f, output_encoding_info_.desired_intensity_target},
+          std::pair<float, float>(
+              0.0f, output_encoding_info_.desired_intensity_target),
           output_encoding_info_.luminances);
     } else if (orig_tf.IsHLG() && !dest_tf.IsHLG()) {
       hlg_ootf_ = jxl::make_unique<HlgOOTF>(
@@ -66,26 +58,25 @@ class ToneMappingStage : public RenderPipelineStage {
   bool IsNeeded() const { return tone_mapper_ || hlg_ootf_; }
 
   Status ProcessRow(const RowInfo& input_rows, const RowInfo& output_rows,
-                    size_t xextra_left, size_t xextra_right, size_t xsize,
-                    size_t xpos, size_t ypos, size_t thread_id) const final {
+                    size_t xextra, size_t xsize, size_t xpos, size_t ypos,
+                    size_t thread_id) const final {
     if (!tone_mapper_ && !hlg_ootf_) return true;
-    JXL_ENSURE(xextra_left == 0 && xextra_right == 0);
     // I.e. we have tone_mapper_ or hlg_ootf_ or both.
     // Other inveriants: !tone_mapper_ means !!hlg_ootf_ and vice-versa.
 
     const HWY_FULL(float) d;
-    size_t x_span_tail = RoundUpTo(xsize, Lanes(d)) - xsize;
+    const size_t xsize_v = RoundUpTo(xsize, Lanes(d));
     float* JXL_RESTRICT row0 = GetInputRow(input_rows, 0, 0);
     float* JXL_RESTRICT row1 = GetInputRow(input_rows, 1, 0);
     float* JXL_RESTRICT row2 = GetInputRow(input_rows, 2, 0);
     // All calculations are lane-wise, still some might require
     // value-dependent behaviour (e.g. NearestInt). Temporary unpoison last
     // vector tail.
-    msan::UnpoisonMemory(row0 + xsize, sizeof(float) * x_span_tail);
-    msan::UnpoisonMemory(row1 + xsize, sizeof(float) * x_span_tail);
-    msan::UnpoisonMemory(row2 + xsize, sizeof(float) * x_span_tail);
-    // TODO(eustas): why unaligned load/store?
-    for (size_t x = 0; x < xsize; x += Lanes(d)) {
+    msan::UnpoisonMemory(row0 + xsize, sizeof(float) * (xsize_v - xsize));
+    msan::UnpoisonMemory(row1 + xsize, sizeof(float) * (xsize_v - xsize));
+    msan::UnpoisonMemory(row2 + xsize, sizeof(float) * (xsize_v - xsize));
+    for (ssize_t x = -xextra; x < static_cast<ssize_t>(xsize + xextra);
+         x += Lanes(d)) {
       auto r = LoadU(d, row0 + x);
       auto g = LoadU(d, row1 + x);
       auto b = LoadU(d, row2 + x);
@@ -107,9 +98,9 @@ class ToneMappingStage : public RenderPipelineStage {
       StoreU(g, d, row1 + x);
       StoreU(b, d, row2 + x);
     }
-    msan::PoisonMemory(row0 + xsize, sizeof(float) * x_span_tail);
-    msan::PoisonMemory(row1 + xsize, sizeof(float) * x_span_tail);
-    msan::PoisonMemory(row2 + xsize, sizeof(float) * x_span_tail);
+    msan::PoisonMemory(row0 + xsize, sizeof(float) * (xsize_v - xsize));
+    msan::PoisonMemory(row1 + xsize, sizeof(float) * (xsize_v - xsize));
+    msan::PoisonMemory(row2 + xsize, sizeof(float) * (xsize_v - xsize));
     return true;
   }
 

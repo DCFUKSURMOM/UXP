@@ -6,9 +6,9 @@
 #include "lib/jxl/dec_patch_dictionary.h"
 
 #include <jxl/memory_manager.h>
+#include <sys/types.h>
 
 #include <algorithm>
-#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <utility>
@@ -19,10 +19,8 @@
 #include "lib/jxl/blending.h"
 #include "lib/jxl/common.h"  // kMaxNumReferenceFrames
 #include "lib/jxl/dec_ans.h"
-#include "lib/jxl/dec_bit_reader.h"
 #include "lib/jxl/image.h"
 #include "lib/jxl/image_bundle.h"
-#include "lib/jxl/image_metadata.h"
 #include "lib/jxl/pack_signed.h"
 #include "lib/jxl/patch_dictionary_internal.h"
 
@@ -41,7 +39,7 @@ Status PatchDictionary::Decode(JxlMemoryManager* memory_manager, BitReader* br,
   JXL_ASSIGN_OR_RETURN(ANSSymbolReader decoder,
                        ANSSymbolReader::Create(&code, br));
 
-  auto read_num = [&](size_t context) -> size_t {
+  auto read_num = [&](size_t context) {
     size_t r = decoder.ReadHybridUint(context, br, context_map);
     return r;
   };
@@ -108,14 +106,14 @@ Status PatchDictionary::Decode(JxlMemoryManager* memory_manager, BitReader* br,
         pos.x = read_num(kPatchPositionContext);
         pos.y = read_num(kPatchPositionContext);
       } else {
-        ptrdiff_t deltax = UnpackSigned(read_num(kPatchOffsetContext));
+        ssize_t deltax = UnpackSigned(read_num(kPatchOffsetContext));
         if (deltax < 0 && static_cast<size_t>(-deltax) > positions_.back().x) {
           return JXL_FAILURE("Invalid patch: negative x coordinate (%" PRIuS
                              " base x %" PRIdS " delta x)",
                              positions_.back().x, deltax);
         }
         pos.x = positions_.back().x + deltax;
-        ptrdiff_t deltay = UnpackSigned(read_num(kPatchOffsetContext));
+        ssize_t deltay = UnpackSigned(read_num(kPatchOffsetContext));
         if (deltay < 0 && static_cast<size_t>(-deltay) > positions_.back().y) {
           return JXL_FAILURE("Invalid patch: negative y coordinate (%" PRIuS
                              " base y %" PRIdS " delta y)",
@@ -255,8 +253,8 @@ void PatchDictionary::ComputePatchTree() {
     // Fill in sorted_patches_y0_ and sorted_patches_y1_ for the current node.
     node.num = right_start - left_end;
     node.start = sorted_patches_y0_.size();
-    for (ptrdiff_t i = static_cast<ptrdiff_t>(right_start) - 1;
-         i >= static_cast<ptrdiff_t>(left_end); --i) {
+    for (ssize_t i = static_cast<ssize_t>(right_start) - 1;
+         i >= static_cast<ssize_t>(left_end); --i) {
       sorted_patches_y1_.emplace_back(intervals[i].y1, intervals[i].idx);
     }
     sort_by_y0(left_end, right_start);
@@ -287,8 +285,8 @@ std::vector<size_t> PatchDictionary::GetPatchesForRow(size_t y) const {
   std::vector<size_t> result;
   if (y < num_patches_.size() && num_patches_[y] > 0) {
     result.reserve(num_patches_[y]);
-    for (ptrdiff_t tree_idx = 0; tree_idx != -1;) {
-      JXL_DASSERT(tree_idx < static_cast<ptrdiff_t>(patch_tree_.size()));
+    for (ssize_t tree_idx = 0; tree_idx != -1;) {
+      JXL_DASSERT(tree_idx < static_cast<ssize_t>(patch_tree_.size()));
       const auto& node = patch_tree_[tree_idx];
       if (y <= node.y_center) {
         for (size_t i = 0; i < node.num; ++i) {

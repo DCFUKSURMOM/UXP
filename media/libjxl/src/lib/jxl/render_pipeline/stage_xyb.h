@@ -5,10 +5,7 @@
 
 #ifndef LIB_JXL_RENDER_PIPELINE_STAGE_XYB_H_
 #define LIB_JXL_RENDER_PIPELINE_STAGE_XYB_H_
-
-#include <cstddef>
-#include <cstdint>
-#include <memory>
+#include <stdint.h>
 
 #include "lib/jxl/dec_xyb.h"
 #include "lib/jxl/render_pipeline/render_pipeline_stage.h"

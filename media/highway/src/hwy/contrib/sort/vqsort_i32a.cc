@@ -13,35 +13,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "hwy/contrib/sort/vqsort.h"  // VQSort
+#include "hwy/contrib/sort/vqsort.h"
 
 #undef HWY_TARGET_INCLUDE
 #define HWY_TARGET_INCLUDE "hwy/contrib/sort/vqsort_i32a.cc"
 #include "hwy/foreach_target.h"  // IWYU pragma: keep
 
 // After foreach_target
+#include "hwy/contrib/sort/traits-inl.h"
 #include "hwy/contrib/sort/vqsort-inl.h"
 
 HWY_BEFORE_NAMESPACE();
 namespace hwy {
 namespace HWY_NAMESPACE {
-namespace {
 
-void SortI32Asc(int32_t* HWY_RESTRICT keys, const size_t num) {
-  return VQSortStatic(keys, num, SortAscending());
+void SortI32Asc(int32_t* HWY_RESTRICT keys, size_t num,
+                int32_t* HWY_RESTRICT buf) {
+  SortTag<int32_t> d;
+  detail::SharedTraits<detail::TraitsLane<detail::OrderAscending<int32_t>>> st;
+  Sort(d, st, keys, num, buf);
 }
 
-void PartialSortI32Asc(int32_t* HWY_RESTRICT keys, const size_t num,
-                       const size_t k) {
-  return VQPartialSortStatic(keys, num, k, SortAscending());
-}
-
-void SelectI32Asc(int32_t* HWY_RESTRICT keys, const size_t num,
-                  const size_t k) {
-  return VQSelectStatic(keys, num, k, SortAscending());
-}
-
-}  // namespace
 // NOLINTNEXTLINE(google-readability-namespace-comments)
 }  // namespace HWY_NAMESPACE
 }  // namespace hwy
@@ -51,27 +43,11 @@ HWY_AFTER_NAMESPACE();
 namespace hwy {
 namespace {
 HWY_EXPORT(SortI32Asc);
-HWY_EXPORT(PartialSortI32Asc);
-HWY_EXPORT(SelectI32Asc);
 }  // namespace
 
-void VQSort(int32_t* HWY_RESTRICT keys, const size_t n, SortAscending) {
-  HWY_DYNAMIC_DISPATCH(SortI32Asc)(keys, n);
-}
-
-void VQPartialSort(int32_t* HWY_RESTRICT keys, const size_t n, const size_t k,
-                   SortAscending) {
-  HWY_DYNAMIC_DISPATCH(PartialSortI32Asc)(keys, n, k);
-}
-
-void VQSelect(int32_t* HWY_RESTRICT keys, const size_t n, const size_t k,
-              SortAscending) {
-  HWY_DYNAMIC_DISPATCH(SelectI32Asc)(keys, n, k);
-}
-
 void Sorter::operator()(int32_t* HWY_RESTRICT keys, size_t n,
-                        SortAscending tag) const {
-  VQSort(keys, n, tag);
+                        SortAscending) const {
+  HWY_DYNAMIC_DISPATCH(SortI32Asc)(keys, n, Get<int32_t>());
 }
 
 }  // namespace hwy

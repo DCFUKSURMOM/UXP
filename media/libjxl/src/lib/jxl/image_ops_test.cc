@@ -12,7 +12,6 @@
 #include "lib/jxl/base/compiler_specific.h"
 #include "lib/jxl/base/printf_macros.h"
 #include "lib/jxl/base/rect.h"
-#include "lib/jxl/base/status.h"
 #include "lib/jxl/image.h"
 #include "lib/jxl/test_memory_manager.h"
 #include "lib/jxl/test_utils.h"
@@ -22,7 +21,7 @@ namespace jxl {
 namespace {
 
 template <typename T>
-Status TestFillImpl(Image3<T>* img, const char* layout) {
+void TestFillImpl(Image3<T>* img, const char* layout) {
   FillImage(static_cast<T>(1), img);
   for (size_t y = 0; y < img->ysize(); ++y) {
     for (size_t c = 0; c < 3; ++c) {
@@ -32,7 +31,7 @@ Status TestFillImpl(Image3<T>* img, const char* layout) {
           printf("Not 1 at c=%" PRIuS " %" PRIuS ", %" PRIuS " (%" PRIuS
                  " x %" PRIuS ") (%s)\n",
                  c, x, y, img->xsize(), img->ysize(), layout);
-          return JXL_FAILURE("Expected value 1");
+          abort();
         }
         row[x] = static_cast<T>(2);
       }
@@ -49,33 +48,32 @@ Status TestFillImpl(Image3<T>* img, const char* layout) {
           printf("Not 0 at c=%" PRIuS " %" PRIuS ", %" PRIuS " (%" PRIuS
                  " x %" PRIuS ") (%s)\n",
                  c, x, y, img->xsize(), img->ysize(), layout);
-          return JXL_FAILURE("Expected value 0");
+          abort();
         }
         row[x] = static_cast<T>(3);
       }
     }
   }
-  return true;
 }
 
 template <typename T>
-Status TestFillT() {
+void TestFillT() {
   for (uint32_t xsize : {0, 1, 15, 16, 31, 32}) {
     for (uint32_t ysize : {0, 1, 15, 16, 31, 32}) {
       JXL_TEST_ASSIGN_OR_DIE(
           Image3<T> image,
           Image3<T>::Create(jxl::test::MemoryManager(), xsize, ysize));
-      JXL_RETURN_IF_ERROR(TestFillImpl(&image, "size ctor"));
+      TestFillImpl(&image, "size ctor");
     }
   }
-  return true;
 }
 
 // Ensure y/c/x and c/y/x loops visit pixels no more than once.
 TEST(ImageTest, TestFill) {
-  ASSERT_TRUE(TestFillT<uint8_t>());
-  ASSERT_TRUE(TestFillT<int16_t>());
-  ASSERT_TRUE(TestFillT<float>());
+  TestFillT<uint8_t>();
+  TestFillT<int16_t>();
+  TestFillT<float>();
+  TestFillT<double>();
 }
 
 TEST(ImageTest, CopyImageToWithPaddingTest) {

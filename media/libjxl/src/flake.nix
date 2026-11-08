@@ -27,7 +27,6 @@
               giflib
               lcms2
               brotli
-              ninja
             ];
             shellHook = ''
               export CC=clang

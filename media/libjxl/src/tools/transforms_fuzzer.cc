@@ -8,8 +8,6 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
-#include <vector>
 
 #include "lib/jxl/base/bits.h"
 #include "lib/jxl/base/common.h"
@@ -55,13 +53,11 @@ void FillChannel(Channel& ch, Rng& rng) {
   }
 }
 
-void CheckImpl(bool ok, const char* condition, const char* file, int line) {
+void Check(bool ok) {
   if (!ok) {
-    fprintf(stderr, "Check(%s) failed at %s:%d\n", condition, file, line);
     JXL_CRASH();
   }
 }
-#define Check(OK) CheckImpl((OK), #OK, __FILE__, __LINE__)
 
 void Run(BitReader& reader, JxlMemoryManager* memory_manager) {
   Rng rng(reader.ReadFixedBits<56>());

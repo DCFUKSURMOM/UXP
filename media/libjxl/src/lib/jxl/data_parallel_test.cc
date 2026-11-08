@@ -51,7 +51,7 @@ class DataParallelTest : public ::testing::Test {
 };
 
 // JxlParallelRunInit interface.
-using JxlParallelRunInit = int (*)();
+typedef int (*JxlParallelRunInit)();
 
 }  // namespace
 

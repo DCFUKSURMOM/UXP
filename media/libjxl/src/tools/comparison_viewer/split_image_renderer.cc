@@ -195,9 +195,7 @@ void SplitImageRenderer::paintEvent(QPaintEvent* const event) {
   QRectF rightRect = rightImage_.rect();
   rightRect.setLeft(middleRect.right());
 
-  if (leftRect.isValid()) {
-    painter.drawPixmap(QPointF(), leftImage_, leftRect);
-  }
+  painter.drawPixmap(QPointF(), leftImage_, leftRect);
   painter.drawPixmap(middleRect.topLeft() / devicePixelRatio(), middleImage_,
                      middleRect);
   painter.drawPixmap(rightRect.topLeft() / devicePixelRatio(), rightImage_,

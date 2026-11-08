@@ -78,6 +78,14 @@ class ANSCoder {
 
 static const int kNumFixedHistograms = 1;
 
+struct EntropyEncodingData {
+  std::vector<std::vector<ANSEncSymbolInfo>> encoding_info;
+  bool use_prefix_code;
+  std::vector<HybridUintConfig> uint_config;
+  LZ77Params lz77;
+  std::vector<BitWriter> encoded_histograms;
+};
+
 // Integer to be encoded by an entropy coder, either ANS or Huffman.
 struct Token {
   Token() = default;
@@ -88,41 +96,14 @@ struct Token {
   uint32_t value;
 };
 
-struct SizeWriter {
-  size_t size = 0;
-  void Write(size_t num, size_t bits) { size += num; }
-};
-
-struct EntropyEncodingData {
-  std::vector<std::vector<ANSEncSymbolInfo>> encoding_info;
-  bool use_prefix_code;
-  std::vector<HybridUintConfig> uint_config;
-  size_t log_alpha_size;
-  LZ77Params lz77;
-  std::vector<BitWriter> encoded_histograms;
-  std::vector<uint8_t> context_map;
-
-  StatusOr<size_t> BuildAndStoreEntropyCodes(
-      JxlMemoryManager* memory_manager, const HistogramParams& params,
-      const std::vector<std::vector<Token>>& tokens,
-      const std::vector<Histogram>& builder, BitWriter* writer, LayerType layer,
-      AuxOut* aux_out);
-
-  StatusOr<size_t> BuildAndStoreANSEncodingData(
-      JxlMemoryManager* memory_manager,
-      HistogramParams::ANSHistogramStrategy ans_histogram_strategy,
-      const Histogram& histogram, BitWriter* writer);
-
- private:
-  Status ChooseUintConfigs(JxlMemoryManager* memory_manager,
-                           const HistogramParams& params,
-                           const std::vector<std::vector<Token>>& tokens,
-                           std::vector<Histogram>& clustered_histograms);
-};
+// Returns an estimate of the number of bits required to encode the given
+// histogram (header bits plus data bits).
+StatusOr<float> ANSPopulationCost(const ANSHistBin* data, size_t alphabet_size);
 
 // Writes the context map to the bitstream and concatenates the individual
 // histogram bitstreams in codes.encoded_histograms. Used in streaming mode.
-Status EncodeHistograms(const EntropyEncodingData& codes, BitWriter* writer,
+Status EncodeHistograms(const std::vector<uint8_t>& context_map,
+                        const EntropyEncodingData& codes, BitWriter* writer,
                         LayerType layer, AuxOut* aux_out);
 
 // Apply context clustering, compute histograms and encode them. Returns an
@@ -133,18 +114,21 @@ Status EncodeHistograms(const EntropyEncodingData& codes, BitWriter* writer,
 StatusOr<size_t> BuildAndEncodeHistograms(
     JxlMemoryManager* memory_manager, const HistogramParams& params,
     size_t num_contexts, std::vector<std::vector<Token>>& tokens,
-    EntropyEncodingData* codes, BitWriter* writer, LayerType layer,
-    AuxOut* aux_out);
+    EntropyEncodingData* codes, std::vector<uint8_t>* context_map,
+    BitWriter* writer, LayerType layer, AuxOut* aux_out);
 
 // Write the tokens to a string.
 Status WriteTokens(const std::vector<Token>& tokens,
-                   const EntropyEncodingData& codes, size_t context_offset,
-                   BitWriter* writer, LayerType layer, AuxOut* aux_out);
+                   const EntropyEncodingData& codes,
+                   const std::vector<uint8_t>& context_map,
+                   size_t context_offset, BitWriter* writer, LayerType layer,
+                   AuxOut* aux_out);
 
 // Same as above, but assumes allotment created by caller.
 size_t WriteTokens(const std::vector<Token>& tokens,
-                   const EntropyEncodingData& codes, size_t context_offset,
-                   BitWriter* writer);
+                   const EntropyEncodingData& codes,
+                   const std::vector<uint8_t>& context_map,
+                   size_t context_offset, BitWriter* writer);
 
 // Exposed for tests; to be used with Writer=BitWriter only.
 template <typename Writer>

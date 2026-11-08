@@ -32,7 +32,7 @@ class JxlBoxContentDecoder {
                            size_t* avail_out);
 
  private:
-  BrotliDecoderState* brotli_dec = nullptr;
+  BrotliDecoderState* brotli_dec;
 
   bool header_done_;
   bool brob_decode_;
